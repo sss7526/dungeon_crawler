@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	// "strings"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +22,8 @@ var (
 
 	gradientPrimary = gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
 	gradientAlt = gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
+	gradientSelected = gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}
+
 
 	styleTitle = gloss.NewStyle().
 		Align(gloss.Center).
@@ -39,6 +41,17 @@ var (
 		PaddingLeft(4).
 		Foreground(gradientAlt)
 
+	// Regular toolbar item style
+	toolbarStyle = gloss.NewStyle().
+			Background(gradientPrimary).
+			Foreground(gloss.Color("#FFFFFF")).
+			Padding(0, 1) // Add some horizontal padding
+
+	// Highlighted (active/selected) toolbar item style
+	toolbarSelected = toolbarStyle.
+			Background(gradientSelected).
+			Underline(true).
+			Bold(true)
 	// styleSelectedItem = gloss.NewStyle().
 	// 	Foreground(gradientPrimary).
 	// 	Bold(true)
@@ -73,6 +86,10 @@ type model struct {
 	quitting		 bool		 // Detect if player wants to quite
 	progress		progress.Model // Progress bar model for health
 	list			list.Model  // Main menu option model
+	activeMenu		int 		// Currently selected toolbar menu in game UI
+	inventory 		[]string 	// Example of player inventory
+	stats 			map[string]int 	// Example player stats
+	// selectedItem 	int 		// focused menu item for tooblar menus (file, stats, etc)
 }
 
 func initialModel() model {
@@ -84,6 +101,12 @@ func initialModel() model {
 		quitting:		false,
 		progress:		progressBar,
 		list:           mainMenu(),
+		inventory: 		[]string{"Potion", "Sword", "Shield"},
+		stats:			map[string]int{
+			"Strength": 10,
+			"Agility":	8,
+			"Intellect": 5,
+		},
 	}
 }
 
@@ -142,8 +165,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyEsc:
 				m.currentMenu = menuQuitPrompt
 			case tea.KeyLeft:
+				if m.activeMenu > 0 {
+					m.activeMenu--
+				}
 			case tea.KeyRight:
+				if m.activeMenu < 4 {
+					m.activeMenu++
+				}
 			case tea.KeyEnter:
+				m.currentMenu = menuChoice(m.activeMenu + 3)
+			}
+		case menuStats:
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.currentMenu = menuGame
 			}
 		case menuQuitPrompt:
 			switch msg.Type {
@@ -193,39 +228,24 @@ func (m model) View() string {
 		return renderMainMenu(m)
 	case menuGame:
 		return renderGameScreen(m)
+	case menuStats:
+		return renderStats(m)
 	case menuQuitPrompt:
 		return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
 	case menuGameOver:
 		return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
 	// case menuTest:
 	// 	return renderTest(m)
+	// case menuFile:
 	default:
-		return "Unknown Menu"
+		return "Unknown menu"
 	}
 }
 
 func renderMainMenu(m model) string {
-	// options := mainMenuOptions()
-
-	// menuList := list.New(options, list.NewDefaultDelegate(), 20, 20)
-	// menuList.Title = "Main Menu"
-	// menuList.SetShowStatusBar(false)
-	// menuList.SetFilteringEnabled(false)
-	// m.list = menuList
 	return "\n" + m.list.View()
-	// var b strings.Builder
-	// fmt.Fprintln(&b, styleTitle.Render("Main Menu"))
-	// for i, option := range options {
-	// 	cursor := " "
-	// 	if m.cursor == i {
-	// 		cursor = ">"
-	// 	}
-	// 	fmt.Fprintf(&b, fmt.Sprintf("%s %s\n", cursor, styleMenuOption.Render(option)))
-	// }
-	// return b.String()
 }
 
-// type item string
 type item struct {
 	title 			string
 	description		string
@@ -236,11 +256,6 @@ func (i item) Title() string { return i.title }
 func (i item) Description() string { return i.description }
 
 func mainMenuOptions() []list.Item {
-	// return []string{
-	// 	"Start New Game",
-	// 	"Load Game",
-	// 	"Quit",
-	// }
 	return []list.Item{
 		item{title: "Start New Game", description: ""},
 		item{title: "Load Game", description: ""},
@@ -249,11 +264,25 @@ func mainMenuOptions() []list.Item {
 }
 
 func renderGameScreen(m model) string {
-	return styleTitle.Render("In Game") +
-		"\n\nHealth:\n" +
-		// healthBar(m.health) +
-		m.progress.ViewAs(float64(m.health)/100) +
-		"\n\nPress 'q' to open the main menu."
+	toolbar := []string{"File", "Stats", "Inventory", "Help", "Test"}
+	var b strings.Builder
+	for i, menu := range toolbar {
+		if i == m.activeMenu {
+			fmt.Fprint(&b, toolbarSelected.Render(menu) + " ")
+		} else {
+			fmt.Fprint(&b, toolbarStyle.Render(menu) + " ")
+		}
+	}
+	return b.String() + "\n\nHealth:\n" + m.progress.ViewAs(float64(m.health)/100)
+}
+
+func renderStats(m model) string {
+	var b strings.Builder
+	fmt.Fprintln(&b, styleTitle.Render("Player Stats"))
+	for stat, value := range m.stats {
+		fmt.Fprintf(&b, "%s: %d\n", styleMenuOption.Render(stat), value)
+	}
+	return b.String()
 }
 
 func main() {

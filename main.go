@@ -2,8 +2,264 @@ package main
 
 import (
 	"fmt"
+	"os"
+	// "strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	gloss "github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/list"
 )
 
+const (
+	startingHealth = 100
+	maxHealth 		= 100
+	welcomeDuration = 2 * time.Second
+)
+
+var (
+
+	gradientPrimary = gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
+	gradientAlt = gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
+
+	styleTitle = gloss.NewStyle().
+		Align(gloss.Center).
+		Foreground(gradientPrimary).
+		Bold(true).
+		Width(50)
+
+	styleWelcomeMessage = gloss.NewStyle().
+		Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
+		Align(gloss.Center).
+		Width(50).
+		Bold(true)
+	
+	styleMenuOption = gloss.NewStyle().
+		PaddingLeft(4).
+		Foreground(gradientAlt)
+
+	// styleSelectedItem = gloss.NewStyle().
+	// 	Foreground(gradientPrimary).
+	// 	Bold(true)
+
+	// styleHealthBar = gloss.NewStyle().
+	// 	Foreground(gloss.Color("#ffffff")).
+	// 	Background(gradientPrimary)
+
+	progressBar = progress.New(progress.WithGradient("#FF3E41", "#FFD700"))
+)
+
+type menuChoice int
+
+const (
+	menuWelcome menuChoice = iota
+	menuMain
+	menuGame
+	menuFile
+	menuStats
+	menuInventory
+	menuHelp
+	menuTest
+	menuQuitPrompt
+	menuGameOver
+)
+
+type model struct {
+	currentMenu		 menuChoice  // Current screen being displayed
+	welcomeMessage	 string		 // Welcome text that fades in
+	health			 int		 // Player's health
+	cursor			 int		 // Current selected menu option
+	quitting		 bool		 // Detect if player wants to quite
+	progress		progress.Model // Progress bar model for health
+	list			list.Model  // Main menu option model
+}
+
+func initialModel() model {
+	return model{
+		currentMenu:	menuWelcome,
+		welcomeMessage: "",
+		health:			100,
+		cursor:			0,
+		quitting:		false,
+		progress:		progressBar,
+		list:           mainMenu(),
+	}
+}
+
+func mainMenu() list.Model {
+	options := mainMenuOptions()
+
+	menuList := list.New(options, list.NewDefaultDelegate(), 20, 20)
+	menuList.Title = "Main Menu"
+	menuList.SetShowStatusBar(false)
+	menuList.SetFilteringEnabled(false)
+	return menuList
+}
+
+func (m model) Init() tea.Cmd {
+	return nil
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.list.SetWidth(msg.Width)
+		return m, nil
+	case tea.KeyMsg:
+		switch m.currentMenu {
+		case menuWelcome:
+			if msg.Type == tea.KeyEnter {
+				m.currentMenu = menuMain
+			}
+		case menuMain:
+			m.list, cmd = m.list.Update(msg)
+
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.currentMenu = menuQuitPrompt
+			case tea.KeyEnter:
+				switch m.cursor {
+				case 0: // New game
+					m.currentMenu = menuGame
+				case 1: // Load game
+					m.currentMenu = menuGame
+				case 2:
+					m.currentMenu = menuQuitPrompt
+				}
+			case tea.KeyUp:
+				if m.currentMenu == menuMain {
+					m.cursor = max(0, m.cursor-1)
+				}
+			case tea.KeyDown:
+				if m.currentMenu == menuMain {
+					m.cursor = min(len(mainMenuOptions())-1, m.cursor+1)
+				}
+			}
+		case menuGame:
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.currentMenu = menuQuitPrompt
+			case tea.KeyLeft:
+			case tea.KeyRight:
+			case tea.KeyEnter:
+			}
+		case menuQuitPrompt:
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.currentMenu = menuMain
+			case tea.KeyEnter:
+				return m, tea.Quit
+			}
+		case menuTest:
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.currentMenu = menuQuitPrompt
+			case tea.KeyRunes:
+				switch string(msg.Runes) {
+				case "h":
+					m.health = max(0, m.health - 10) // Reduce health
+				case "r":
+					m.health = min(maxHealth, m.health + 10) // Restore health
+				}
+			}
+		}
+	}
+	return m, cmd
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (m model) View() string {
+	switch m.currentMenu {
+	case menuWelcome:
+		return styleWelcomeMessage.Render("Welcome to the Dungeon!") +
+			"\n\n" +
+			styleMenuOption.Render("Press ENTER to Continue")
+	case menuMain:
+		return renderMainMenu(m)
+	case menuGame:
+		return renderGameScreen(m)
+	case menuQuitPrompt:
+		return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+	case menuGameOver:
+		return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
+	// case menuTest:
+	// 	return renderTest(m)
+	default:
+		return "Unknown Menu"
+	}
+}
+
+func renderMainMenu(m model) string {
+	// options := mainMenuOptions()
+
+	// menuList := list.New(options, list.NewDefaultDelegate(), 20, 20)
+	// menuList.Title = "Main Menu"
+	// menuList.SetShowStatusBar(false)
+	// menuList.SetFilteringEnabled(false)
+	// m.list = menuList
+	return "\n" + m.list.View()
+	// var b strings.Builder
+	// fmt.Fprintln(&b, styleTitle.Render("Main Menu"))
+	// for i, option := range options {
+	// 	cursor := " "
+	// 	if m.cursor == i {
+	// 		cursor = ">"
+	// 	}
+	// 	fmt.Fprintf(&b, fmt.Sprintf("%s %s\n", cursor, styleMenuOption.Render(option)))
+	// }
+	// return b.String()
+}
+
+// type item string
+type item struct {
+	title 			string
+	description		string
+}
+
+func (i item) FilterValue() string { return i.title }
+func (i item) Title() string { return i.title }
+func (i item) Description() string { return i.description }
+
+func mainMenuOptions() []list.Item {
+	// return []string{
+	// 	"Start New Game",
+	// 	"Load Game",
+	// 	"Quit",
+	// }
+	return []list.Item{
+		item{title: "Start New Game", description: ""},
+		item{title: "Load Game", description: ""},
+		item{title: "Quit", description: ""},
+	}
+}
+
+func renderGameScreen(m model) string {
+	return styleTitle.Render("In Game") +
+		"\n\nHealth:\n" +
+		// healthBar(m.health) +
+		m.progress.ViewAs(float64(m.health)/100) +
+		"\n\nPress 'q' to open the main menu."
+}
+
 func main() {
-	fmt.Println("Hello World")
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error starting application:", err)
+		os.Exit(1)
+	}
 }

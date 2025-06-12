@@ -81,14 +81,12 @@ type model struct {
 	animatedMessage  	string 
 	animationStep		int
 	health			 	float64	 		// Player's health
-	cursor			 	int		 		// Current selected menu option
 	quitting		 	bool		 	// Detect if player wants to quite
 	progress			progress.Model 	// Progress bar model for health
 	list				list.Model  	// Main menu option model
 	activeMenu			int 			// Currently selected toolbar menu in game UI
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
-	// selectedItem 	int 			// focused menu item for tooblar menus (file, stats, etc)
 }
 
 func initialModel() model {
@@ -98,7 +96,6 @@ func initialModel() model {
 		animatedMessage: 	"",
 		animationStep: 		0,
 		health:				100,
-		cursor:				0,
 		quitting:			false,
 		progress:			progressBar,
 		list:           	mainMenu(),
@@ -131,7 +128,6 @@ func doTick() tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	// return nil
 	return doTick()
 }
 
@@ -151,10 +147,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.animationStep++
 				m.animatedMessage = m.welcomeMessage[:m.animationStep]
 			}
-			// return m, doTick()
 		case menuGame:
 			m.health = math.Min(maxHealth, m.health + 0.05)
-			// return m, doTick()
 		}
 		return m, doTick()
 	
@@ -168,27 +162,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentMenu = menuMain
 			}
 		case menuMain:
-			m.list, cmd = m.list.Update(msg)
+			var listCmd tea.Cmd
+			m.list, listCmd = m.list.Update(msg)
+			cmd = tea.Batch(cmd, listCmd)
 
 			switch msg.Type {
 			case tea.KeyEsc:
 				m.currentMenu = menuQuitPrompt
 			case tea.KeyEnter:
-				switch m.cursor {
-				case 0: // New game
-					m.currentMenu = menuGame
-				case 1: // Load game
-					m.currentMenu = menuGame
-				case 2:
-					m.currentMenu = menuQuitPrompt
-				}
-			case tea.KeyUp:
-				if m.currentMenu == menuMain {
-					m.cursor = max(0, m.cursor-1)
-				}
-			case tea.KeyDown:
-				if m.currentMenu == menuMain {
-					m.cursor = min(len(mainMenuOptions())-1, m.cursor+1)
+				if sel, ok := m.list.SelectedItem().(item); ok {
+					switch sel.title {
+					case "Start New Game": // New game
+						m.currentMenu = menuGame
+					case "Load Game": // Load game
+						m.currentMenu = menuGame
+					case "Quit":
+						m.currentMenu = menuQuitPrompt
+					}
 				}
 			}
 		case menuGame:
@@ -233,20 +223,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, cmd
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (m model) View() string {

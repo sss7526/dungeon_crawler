@@ -83,14 +83,14 @@ type model struct {
 	health			 	float64	 		// Player's health
 	quitting		 	bool		 	// Detect if player wants to quite
 	progress			progress.Model 	// Progress bar model for health
-	list				list.Model  	// Main menu option model
+	list				*list.Model  	// Main menu option model
 	activeMenu			int 			// Currently selected toolbar menu in game UI
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
 }
 
 func initialModel() *model {
-	return &model{
+	m := &model{
 		currentMenu:		menuWelcome,
 		welcomeMessage: 	"Welcome to the Dungeon!",
 		animatedMessage: 	"",
@@ -98,7 +98,6 @@ func initialModel() *model {
 		health:				100,
 		quitting:			false,
 		progress:			progressBar,
-		list:           	mainMenu(),
 		inventory: 			[]string{"Potion", "Sword", "Shield"},
 		stats:				map[string]int{
 								"Strength": 10,
@@ -106,16 +105,18 @@ func initialModel() *model {
 								"Intellect": 5,
 							},
 	}
+	m.list = mainMenu(m)
+	return m
 }
 
-func mainMenu() list.Model {
-	options := mainMenuOptions()
+func mainMenu(m *model) *list.Model {
+	options := mainMenuOptions(m)
 
 	menuList := list.New(options, list.NewDefaultDelegate(), 20, 20)
 	menuList.Title = "Main Menu"
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
-	return menuList
+	return &menuList
 }
 
 type TickMsg time.Time
@@ -163,22 +164,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case menuMain:
 			var listCmd tea.Cmd
-			m.list, listCmd = m.list.Update(msg)
+			*m.list, listCmd = m.list.Update(msg)
 			cmd = tea.Batch(cmd, listCmd)
 
 			switch msg.Type {
 			case tea.KeyEsc:
 				m.currentMenu = menuQuitPrompt
 			case tea.KeyEnter:
-				if sel, ok := m.list.SelectedItem().(item); ok {
-					switch sel.title {
-					case "Start New Game": // New game
-						m.currentMenu = menuGame
-					case "Load Game": // Load game
-						m.currentMenu = menuGame
-					case "Quit":
-						m.currentMenu = menuQuitPrompt
-					}
+				if sel, ok := m.list.SelectedItem().(item); ok && sel.handler != nil {
+					sel.handler()
 				}
 			}
 		case menuGame:
@@ -254,17 +248,30 @@ func renderMainMenu(m *model) string {
 type item struct {
 	title 			string
 	description		string
+	handler			func()
 }
 
 func (i item) FilterValue() string { return i.title }
 func (i item) Title() string { return i.title }
 func (i item) Description() string { return i.description }
 
-func mainMenuOptions() []list.Item {
+func newItem(title, description string, handler func()) item {
+	return item{
+		title:			title,
+		description:	description,
+		handler:		handler,
+	}
+}
+
+func (m *model) handleStartNewGame() { m.currentMenu = menuGame }
+func (m *model) handleLoadGame() { m.currentMenu = menuGame }
+func (m *model) handleQuit() { m.currentMenu = menuQuitPrompt }
+
+func mainMenuOptions(m *model) []list.Item {
 	return []list.Item{
-		item{title: "Start New Game", description: ""},
-		item{title: "Load Game", description: ""},
-		item{title: "Quit", description: ""},
+		newItem("Start New Game", "", m.handleStartNewGame),
+		newItem("Load Game", "", m.handleLoadGame),
+		newItem("Quit", "", m.handleQuit),
 	}
 }
 

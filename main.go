@@ -37,6 +37,8 @@ var (
 		Align(gloss.Center).
 		Width(50).
 		Bold(true)
+
+	styleWelcomeHelpPrompt = styleWelcomeMessage.Foreground(gradientAlt)
 	
 	styleMenuOption = gloss.NewStyle().
 		PaddingLeft(4).
@@ -105,14 +107,9 @@ func initialModel() *model {
 								"Agility":	8,
 								"Intellect": 5,
 		},
-		toolbar: 			[]toolbarItem{
-			{label: "File", menuChoice: menuFile},
-			{label: "Stats", menuChoice: menuStats},
-			{label: "Inventory", menuChoice: menuInventory},
-			{label: "Help", menuChoice: menuHelp},
-		},
 	}
 	m.list = mainMenu(m)
+	m.toolbar = newToolbar(m)
 	return m
 }
 
@@ -160,6 +157,23 @@ type toolbarItem struct {
 	label		string
 	menuChoice	menuChoice
 	handler		func(m *model) tea.Cmd
+}
+
+func newToolbarItem(label string, menuChoice menuChoice, handler func(m *model) tea.Cmd) toolbarItem {
+	return toolbarItem{
+		label:		label,
+		menuChoice:	menuChoice,
+		handler:	handler,
+	}
+}
+
+func newToolbar(_ *model) []toolbarItem {
+	return []toolbarItem{
+		newToolbarItem("File", menuFile, nil),
+		newToolbarItem("Stats", menuStats, nil),
+		newToolbarItem("Inventory", menuInventory, nil),
+		newToolbarItem("Help", menuHelp, nil),
+	}
 }
 
 type TickMsg time.Time
@@ -223,15 +237,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyEsc:
 				m.currentMenu = menuQuitPrompt
 			case tea.KeyLeft:
-				if m.activeMenu > 0 {
-					m.activeMenu--
-				}
+				m.activeMenu = max(m.activeMenu-1, 0)
 			case tea.KeyRight:
-				if m.activeMenu < 4 {
-					m.activeMenu++
-				}
+				m.activeMenu = min(m.activeMenu+1, len(m.toolbar)-1)
 			case tea.KeyEnter:
-				// m.currentMenu = menuChoice(m.activeMenu + 3)
 				selected := m.toolbar[m.activeMenu]
 				if selected.handler != nil {
 					return m, selected.handler(m)
@@ -270,9 +279,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *model) View() string {
 	switch m.currentMenu {
 	case menuWelcome:
-		return styleWelcomeMessage.Render(m.animatedMessage) +
-			"\n\n" +
-			styleMenuOption.Render("Press ENTER to Continue")
+		return renderWelcomeScreen(m)
 	case menuMain:
 		return renderMainMenu(m)
 	case menuGame:
@@ -280,13 +287,27 @@ func (m *model) View() string {
 	case menuStats:
 		return renderStats(m)
 	case menuQuitPrompt:
-		return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+		return renderQuitPrompt(m)
 	case menuGameOver:
-		return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
+		return renderGameOver(m)
 	// case menuFile:
 	default:
 		return "Unknown menu"
 	}
+}
+
+func renderWelcomeScreen(m *model) string {
+	return styleWelcomeMessage.Render(m.animatedMessage) +
+		"\n\n" +
+		styleWelcomeHelpPrompt.Render("Press ENTER to Continue")
+}
+
+func renderQuitPrompt(_ *model) string {
+	return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+}
+
+func renderGameOver(_ *model) string {
+	return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
 }
 
 func renderMainMenu(m *model) string {
@@ -294,7 +315,6 @@ func renderMainMenu(m *model) string {
 }
 
 func renderGameScreen(m *model) string {
-	// toolbar := []string{"File", "Stats", "Inventory", "Help", "Test"}
 	var b strings.Builder
 	for i, item := range m.toolbar {
 		if i == m.activeMenu {

@@ -79,49 +79,6 @@ func newTheme() Theme {
         ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
     }
 }
-// var (
-
-// 	gradientPrimary = gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
-// 	gradientAlt = gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
-// 	gradientSelected = gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}
-
-
-// 	styleTitle = gloss.NewStyle().
-// 		Align(gloss.Center).
-// 		Foreground(gradientPrimary).
-// 		Bold(true).
-// 		Width(50)
-
-// 	styleWelcomeMessage = gloss.NewStyle().
-// 		Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
-// 		Align(gloss.Center).
-// 		Width(50).
-// 		Bold(true)
-
-// 	styleWelcomeHelpPrompt = styleWelcomeMessage.Foreground(gradientAlt)
-	
-// 	styleMenuOption = gloss.NewStyle().
-// 		PaddingLeft(4).
-// 		Foreground(gradientAlt)
-
-// 	// Regular toolbar item style
-// 	toolbarStyle = gloss.NewStyle().
-// 			Background(gradientPrimary).
-// 			Foreground(gloss.Color("#FFFFFF")).
-// 			Padding(0, 1) // Add some horizontal padding
-
-// 	// Highlighted (active/selected) toolbar item style
-// 	toolbarSelected = toolbarStyle.
-// 			Background(gradientSelected).
-// 			Underline(true).
-// 			Bold(true)
-
-// 	// styleSelectedItem = gloss.NewStyle().
-// 	// 	Foreground(gradientPrimary).
-// 	// 	Bold(true)
-
-// 	progressBar = progress.New(progress.WithGradient("#FF3E41", "#00FF00"))
-// )
 
 type menuChoice int
 
@@ -139,28 +96,27 @@ const (
 
 type model struct {
 	theme 				Theme 			// Visual configuration for the TUI
-	currentMenu		 	menuChoice  	// Current screen being displayed
-	welcomeMessage	 	string		 	// Welcome text that fades in
-	animatedMessage  	string 
-	animationStep		int
+	screens 			map[menuChoice]Screen
+	currentScreen		Screen
 	health			 	float64	 		// Player's health
 	quitting		 	bool		 	// Detect if player wants to quite
 	progress			progress.Model 	// Progress bar model for health
-	list				*list.Model  	// Main menu option model
 	activeMenu			int 			// Currently selected toolbar menu in game UI
 	toolbar				[]toolbarItem	// The toolbar items
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
 }
 
+type Screen interface {
+	Init() tea.Cmd
+	Update(msg tea.Msg, m *model) tea.Cmd
+	View(m *model) string
+}
+
 func initialModel() *model {
 	theme := newTheme()
 	m := &model{
 		theme:				theme,
-		currentMenu:		menuWelcome,
-		welcomeMessage: 	"Welcome to the Dungeon!",
-		animatedMessage: 	"",
-		animationStep: 		0,
 		health:				100,
 		quitting:			false,
 		progress:			theme.ProgressBar,
@@ -171,32 +127,116 @@ func initialModel() *model {
 								"Intellect": 5,
 		},
 	}
-	m.list = mainMenu(m)
+	m.screens = map[menuChoice]Screen{
+		menuWelcome: NewWelcomeScreen(),
+		menuMain: NewMainMenuScreen(m),
+		menuGame: NewGameMenuScreen(),
+		menuQuitPrompt: NewQuitPromptScreen(),
+		menuGameOver: NewGameOverScreen(),
+		menuStats: NewStatsScreen(),
+	}
+	m.currentScreen = m.screens[menuWelcome]
 	m.toolbar = newToolbar(m)
 	return m
 }
 
-func mainMenu(m *model) *list.Model {
-	options := mainMenuOptions(m)
+func (m *model) switchScreen(choice menuChoice) tea.Cmd {
+	m.currentScreen = m.screens[choice]
+	return m.currentScreen.Init()
+}
 
-	menuList := list.New(options, list.NewDefaultDelegate(), 20, 20)
+type WelcomeScreen struct {
+	message 		string
+	animatedMessage string
+	animationStep 	int 
+}
+
+func NewWelcomeScreen() *WelcomeScreen {
+	return &WelcomeScreen{
+		message: 			"Welcome to the Dungeon!",
+		animatedMessage:	"",
+		animationStep:		0,
+	}
+}
+
+func (s *WelcomeScreen) Init() tea.Cmd {
+	return doTick()
+}
+
+func (s *WelcomeScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	switch msg := msg.(type) {
+	case TickMsg:
+		if s.animationStep < len(s.message) {
+			s.animationStep++
+			s.animatedMessage = s.message[:s.animationStep]
+			return doTick()
+		}
+	case tea.KeyMsg:
+		if msg.Type == tea.KeyEnter {
+			return m.switchScreen(menuMain)
+		}
+	}
+	return nil
+}
+
+func (s *WelcomeScreen) View(m *model) string {
+	return m.theme.WelcomeStyle.Render(s.animatedMessage) +
+		"\n\n" +
+		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
+}
+
+type MainMenuScreen struct {
+	list list.Model	// Bubble tea list for menu rendering
+}
+
+func NewMainMenuScreen(m *model) *MainMenuScreen {
+	items := mainMenuOptions(m)
+	menuList := list.New(items, list.NewDefaultDelegate(), 20, 20)
 	menuList.Title = "Main Menu"
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
-	return &menuList
+	return &MainMenuScreen{list: menuList}
+}
+
+func (s *MainMenuScreen) Init() tea.Cmd {
+	return nil
+}
+
+func (s *MainMenuScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	var cmd tea.Cmd
+	var listCmd tea.Cmd
+	s.list, listCmd = s.list.Update(msg)
+	cmd = tea.Batch(cmd, listCmd)
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			m.switchScreen(menuQuitPrompt)
+		case tea.KeyEnter:
+			if sel, ok := s.list.SelectedItem().(item); ok && sel.handler != nil {
+				// return sel.handler()
+				sel.handler()
+			}
+		}
+	}
+	return cmd
+}
+
+func (s *MainMenuScreen) View(m *model) string {
+	return "\n" + s.list.View()
 }
 
 type item struct {
 	title 			string
 	description		string
-	handler			func()
+	handler			func() 
 }
 
 func (i item) FilterValue() string { return i.title }
 func (i item) Title() string { return i.title }
 func (i item) Description() string { return i.description }
 
-func newItem(title, description string, handler func()) item {
+func newItem(title, description string, handler func() ) item {
 	return item{
 		title:			title,
 		description:	description,
@@ -204,9 +244,9 @@ func newItem(title, description string, handler func()) item {
 	}
 }
 
-func (m *model) handleStartNewGame() { m.currentMenu = menuGame }
-func (m *model) handleLoadGame() { m.currentMenu = menuGame }
-func (m *model) handleQuit() { m.currentMenu = menuQuitPrompt }
+func (m *model) handleStartNewGame() { m.switchScreen(menuGame) }
+func (m *model) handleLoadGame() { m.switchScreen(menuGame) }
+func (m *model) handleQuit() { m.switchScreen(menuGame) }
 
 func mainMenuOptions(m *model) []list.Item {
 	return []list.Item{
@@ -214,6 +254,63 @@ func mainMenuOptions(m *model) []list.Item {
 		newItem("Load Game", "", m.handleLoadGame),
 		newItem("Quit", "", m.handleQuit),
 	}
+}
+
+type GameScreen struct{}
+
+func NewGameMenuScreen() *GameScreen {
+	return &GameScreen{}
+}
+
+func (s *GameScreen) Init() tea.Cmd {
+	return doTick()
+}
+
+func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	switch msg := msg.(type) {
+	case TickMsg:
+		m.health = math.Min(maxHealth, m.health+0.05)	// Regen health
+		if m.health <= 0 {
+			return m.switchScreen(menuGameOver) 		// game over if health runs out
+		}
+		return doTick()
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			return m.switchScreen(menuQuitPrompt)
+		case tea.KeyLeft:
+			m.activeMenu = max(m.activeMenu-1, 0)
+		case tea.KeyRight:
+			m.activeMenu = min(m.activeMenu+1, len(m.toolbar)-1)
+		case tea.KeyEnter:
+			selected := m.toolbar[m.activeMenu]
+			if selected.handler != nil {
+				return selected.handler(m)
+			}
+			// m.currentMenu = selected.menuChoice
+			m.switchScreen(selected.menuChoice)
+		case tea.KeyRunes:
+			switch string(msg.Runes) {
+			case "h":
+				m.health = math.Max(0, m.health-10)
+			case "r":
+				m.health = math.Min(maxHealth, m.health+10)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *GameScreen) View(m *model) string {
+	var b strings.Builder
+	for i, item := range m.toolbar {
+		if i == m.activeMenu {
+			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label) + " ")
+		} else {
+			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label) + " ")
+		}
+	}
+	return b.String() + "\n\nHealth:\n" + m.theme.ProgressBar.ViewAs(float64(m.health)/maxHealth)
 }
 
 type toolbarItem struct {
@@ -239,6 +336,88 @@ func newToolbar(_ *model) []toolbarItem {
 	}
 }
 
+type QuitPromptScreen struct{}
+
+func NewQuitPromptScreen() *QuitPromptScreen {
+	return &QuitPromptScreen{}
+}
+
+func (s *QuitPromptScreen) Init() tea.Cmd {
+	return nil
+}
+
+func (s *QuitPromptScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			return tea.Quit
+		case tea.KeyEsc:
+			return m.switchScreen(menuMain)
+		}
+	}
+	return nil
+}
+
+func (s *QuitPromptScreen) View(m *model) string {
+	return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+}
+
+type GameOverScreen struct{}
+
+func NewGameOverScreen() *GameOverScreen {
+	return &GameOverScreen{}
+}
+
+func (s *GameOverScreen) Init() tea.Cmd {
+	return nil
+}
+
+func (s *GameOverScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			return m.switchScreen(menuMain)
+		}
+	}
+	return nil
+}
+
+func (s *GameOverScreen) View(m *model) string {
+	return m.theme.TitleStyle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
+}
+
+type StatsScreen struct{}
+
+func NewStatsScreen() *StatsScreen {
+	return &StatsScreen{}
+}
+
+func (s *StatsScreen) Init() tea.Cmd {
+	return nil
+}
+
+func (s *StatsScreen) Update(msg tea.Msg, m *model) tea.Cmd {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			return m.switchScreen(menuGame)
+		}
+	}
+	return nil
+}
+
+func (s *StatsScreen) View(m *model) string {
+	var b strings.Builder
+	fmt.Fprintln(&b, m.theme.TitleStyle.Render("Player Stats"))
+	for stat, value := range m.stats {
+		fmt.Fprintf(&b, "%s: %d\n", m.theme.MenuOptionStyle.Render(stat), value)
+	}
+	return b.String()
+}
+
 type TickMsg time.Time
 
 func doTick() tea.Cmd {
@@ -253,149 +432,24 @@ func (m *model) Init() tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
-	var cmd tea.Cmd
-	if m.health <= 0 && m.currentMenu == menuGame {
-		m.currentMenu = menuGameOver
-		return m, nil
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+			m.switchScreen(menuMain)
+		}
+	}()
+	// Handle screen switching command (menuChoice messages)
+	if menu, ok := msg.(menuChoice); ok {
+		return m, m.switchScreen(menu)
 	}
 
-	switch msg := msg.(type) {
-	case TickMsg:
-		switch m.currentMenu {
-		case menuWelcome:
-			if m.animationStep < len(m.welcomeMessage) {
-				m.animationStep++
-				m.animatedMessage = m.welcomeMessage[:m.animationStep]
-			}
-		case menuGame:
-			m.health = math.Min(maxHealth, m.health + 0.05)
-		}
-		return m, doTick()
-	
-	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
-		return m, nil
-	case tea.KeyMsg:
-		switch m.currentMenu {
-		case menuWelcome:
-			if msg.Type == tea.KeyEnter {
-				m.currentMenu = menuMain
-			}
-		case menuMain:
-			var listCmd tea.Cmd
-			*m.list, listCmd = m.list.Update(msg)
-			cmd = tea.Batch(cmd, listCmd)
-
-			switch msg.Type {
-			case tea.KeyEsc:
-				m.currentMenu = menuQuitPrompt
-			case tea.KeyEnter:
-				if sel, ok := m.list.SelectedItem().(item); ok && sel.handler != nil {
-					sel.handler()
-				}
-			}
-		case menuGame:
-			switch msg.Type {
-			case tea.KeyEsc:
-				m.currentMenu = menuQuitPrompt
-			case tea.KeyLeft:
-				m.activeMenu = max(m.activeMenu-1, 0)
-			case tea.KeyRight:
-				m.activeMenu = min(m.activeMenu+1, len(m.toolbar)-1)
-			case tea.KeyEnter:
-				selected := m.toolbar[m.activeMenu]
-				if selected.handler != nil {
-					return m, selected.handler(m)
-				}
-				m.currentMenu = selected.menuChoice
-			case tea.KeyRunes:	// h and r keypresses are for testing
-				switch string(msg.Runes) {
-				case "h":
-					m.health = math.Max(0, m.health - 10) // Reduce health
-				case "r":
-					m.health = math.Min(maxHealth, m.health + 10) // Restore health
-				}
-			}
-		case menuStats:
-			switch msg.Type {
-			case tea.KeyEsc:
-				m.currentMenu = menuGame
-			}
-		case menuQuitPrompt:
-			switch msg.Type {
-			case tea.KeyEsc:
-				m.currentMenu = menuMain
-			case tea.KeyEnter:
-				return m, tea.Quit
-			}
-		case menuGameOver:
-			switch msg.Type {
-			case tea.KeyEnter:
-				m.currentMenu = menuMain
-			}
-		}
-	}
+	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd
 }
 
 func (m *model) View() string {
-	switch m.currentMenu {
-	case menuWelcome:
-		return renderWelcomeScreen(m)
-	case menuMain:
-		return renderMainMenu(m)
-	case menuGame:
-		return renderGameScreen(m)
-	case menuStats:
-		return renderStats(m)
-	case menuQuitPrompt:
-		return renderQuitPrompt(m)
-	case menuGameOver:
-		return renderGameOver(m)
-	// case menuFile:
-	default:
-		return "Unknown menu"
-	}
-}
-
-func renderWelcomeScreen(m *model) string {
-	return m.theme.WelcomeStyle.Render(m.animatedMessage) +
-		"\n\n" +
-		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
-}
-
-func renderQuitPrompt(m *model) string {
-	return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
-}
-
-func renderGameOver(m *model) string {
-	return m.theme.TitleStyle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
-}
-
-func renderMainMenu(m *model) string {
-	return "\n" + m.list.View()
-}
-
-func renderGameScreen(m *model) string {
-	var b strings.Builder
-	for i, item := range m.toolbar {
-		if i == m.activeMenu {
-			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label) + " ")
-		} else {
-			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label) + " ")
-		}
-	}
-	return b.String() + "\n\nHealth:\n" + m.theme.ProgressBar.ViewAs(float64(m.health)/maxHealth)
-}
-
-func renderStats(m *model) string {
-	var b strings.Builder
-	fmt.Fprintln(&b, m.theme.TitleStyle.Render("Player Stats"))
-	for stat, value := range m.stats {
-		fmt.Fprintf(&b, "%s: %d\n", m.theme.MenuOptionStyle.Render(stat), value)
-	}
-	return b.String()
+	// Delegate rendering to the current screen's View method
+	return m.currentScreen.View(m)
 }
 
 func main() {

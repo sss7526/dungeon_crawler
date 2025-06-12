@@ -75,34 +75,38 @@ const (
 )
 
 type model struct {
-	currentMenu		 menuChoice  // Current screen being displayed
-	welcomeMessage	 string		 // Welcome text that fades in
-	health			 int		 // Player's health
-	cursor			 int		 // Current selected menu option
-	quitting		 bool		 // Detect if player wants to quite
-	progress		progress.Model // Progress bar model for health
-	list			list.Model  // Main menu option model
-	activeMenu		int 		// Currently selected toolbar menu in game UI
-	inventory 		[]string 	// Example of player inventory
-	stats 			map[string]int 	// Example player stats
-	// selectedItem 	int 		// focused menu item for tooblar menus (file, stats, etc)
+	currentMenu		 	menuChoice  	// Current screen being displayed
+	welcomeMessage	 	string		 	// Welcome text that fades in
+	animatedMessage  	string 
+	animationStep		int
+	health			 	int		 		// Player's health
+	cursor			 	int		 		// Current selected menu option
+	quitting		 	bool		 	// Detect if player wants to quite
+	progress			progress.Model 	// Progress bar model for health
+	list				list.Model  	// Main menu option model
+	activeMenu			int 			// Currently selected toolbar menu in game UI
+	inventory 			[]string 		// Example of player inventory
+	stats 				map[string]int 	// Example player stats
+	// selectedItem 	int 			// focused menu item for tooblar menus (file, stats, etc)
 }
 
 func initialModel() model {
 	return model{
-		currentMenu:	menuWelcome,
-		welcomeMessage: "",
-		health:			100,
-		cursor:			0,
-		quitting:		false,
-		progress:		progressBar,
-		list:           mainMenu(),
-		inventory: 		[]string{"Potion", "Sword", "Shield"},
-		stats:			map[string]int{
-			"Strength": 10,
-			"Agility":	8,
-			"Intellect": 5,
-		},
+		currentMenu:		menuWelcome,
+		welcomeMessage: 	"Welcome to the Dungeon!",
+		animatedMessage: 	"",
+		animationStep: 		0,
+		health:				100,
+		cursor:				0,
+		quitting:			false,
+		progress:			progressBar,
+		list:           	mainMenu(),
+		inventory: 			[]string{"Potion", "Sword", "Shield"},
+		stats:				map[string]int{
+								"Strength": 10,
+								"Agility":	8,
+								"Intellect": 5,
+							},
 	}
 }
 
@@ -119,7 +123,7 @@ func mainMenu() list.Model {
 type TickMsg time.Time
 
 func doTick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(50*time.Millisecond, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
 
@@ -140,8 +144,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case TickMsg:
-		m.health = min(maxHealth, m.health + 1) // Restore health
+		// m.health = min(maxHealth, m.health + 1) // Restore health
+		// return m, doTick()
+		switch m.currentMenu {
+		case menuWelcome:
+			if m.animationStep < len(m.welcomeMessage) {
+				m.animationStep++
+				m.animatedMessage = m.welcomeMessage[:m.animationStep]
+			}
+			return m, doTick()
+		case menuGame:
+			// if m.health < maxHealth {
+			m.health = min(maxHealth, m.health + 1) // Restore health
+			// }
+			return m, doTick()
+		}
 		return m, doTick()
+	
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
 		return m, nil
@@ -236,7 +255,7 @@ func min(a, b int) int {
 func (m model) View() string {
 	switch m.currentMenu {
 	case menuWelcome:
-		return styleWelcomeMessage.Render("Welcome to the Dungeon!") +
+		return styleWelcomeMessage.Render(m.animatedMessage) +
 			"\n\n" +
 			styleMenuOption.Render("Press ENTER to Continue")
 	case menuMain:

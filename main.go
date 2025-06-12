@@ -19,49 +19,109 @@ const (
 	welcomeDuration = 2 * time.Second
 )
 
-var (
+type Theme struct {
+    // Colors
+    Primary   gloss.AdaptiveColor
+    Secondary gloss.AdaptiveColor
+    Selected  gloss.AdaptiveColor
+    HealthLow gloss.Color
+    HealthHigh gloss.Color
 
-	gradientPrimary = gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
-	gradientAlt = gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
-	gradientSelected = gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}
+    // Styles
+    TitleStyle       gloss.Style
+    WelcomeStyle     gloss.Style
+    MenuOptionStyle  gloss.Style
+    ToolbarStyle     gloss.Style
+    ToolbarSelected  gloss.Style
+
+    // UI components
+    ProgressBar progress.Model
+}
+
+// newTheme initializes and returns a Theme instance.
+func newTheme() Theme {
+    return Theme{
+        // Adaptive colors for light and dark modes
+        Primary:   gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"},
+        Secondary: gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
+        Selected:  gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
+        HealthLow: gloss.Color("#FF3E41"),
+        HealthHigh: gloss.Color("#00FF00"),
+
+        // Styles
+        TitleStyle: gloss.NewStyle().
+            Align(gloss.Center).
+            Foreground(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
+            Bold(true).
+            Width(50),
+
+        WelcomeStyle: gloss.NewStyle().
+            Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
+            Align(gloss.Center).
+            Width(50).
+            Bold(true),
+
+        MenuOptionStyle: gloss.NewStyle().
+            PaddingLeft(4).
+            Foreground(gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}),
+
+        ToolbarStyle: gloss.NewStyle().
+            Background(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
+            Foreground(gloss.Color("#FFFFFF")).
+            Padding(0, 1),
+
+        ToolbarSelected: gloss.NewStyle().
+            Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
+            Underline(true).
+            Bold(true),
+
+        // Progress Bar
+        ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
+    }
+}
+// var (
+
+// 	gradientPrimary = gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
+// 	gradientAlt = gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
+// 	gradientSelected = gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}
 
 
-	styleTitle = gloss.NewStyle().
-		Align(gloss.Center).
-		Foreground(gradientPrimary).
-		Bold(true).
-		Width(50)
+// 	styleTitle = gloss.NewStyle().
+// 		Align(gloss.Center).
+// 		Foreground(gradientPrimary).
+// 		Bold(true).
+// 		Width(50)
 
-	styleWelcomeMessage = gloss.NewStyle().
-		Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
-		Align(gloss.Center).
-		Width(50).
-		Bold(true)
+// 	styleWelcomeMessage = gloss.NewStyle().
+// 		Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
+// 		Align(gloss.Center).
+// 		Width(50).
+// 		Bold(true)
 
-	styleWelcomeHelpPrompt = styleWelcomeMessage.Foreground(gradientAlt)
+// 	styleWelcomeHelpPrompt = styleWelcomeMessage.Foreground(gradientAlt)
 	
-	styleMenuOption = gloss.NewStyle().
-		PaddingLeft(4).
-		Foreground(gradientAlt)
+// 	styleMenuOption = gloss.NewStyle().
+// 		PaddingLeft(4).
+// 		Foreground(gradientAlt)
 
-	// Regular toolbar item style
-	toolbarStyle = gloss.NewStyle().
-			Background(gradientPrimary).
-			Foreground(gloss.Color("#FFFFFF")).
-			Padding(0, 1) // Add some horizontal padding
+// 	// Regular toolbar item style
+// 	toolbarStyle = gloss.NewStyle().
+// 			Background(gradientPrimary).
+// 			Foreground(gloss.Color("#FFFFFF")).
+// 			Padding(0, 1) // Add some horizontal padding
 
-	// Highlighted (active/selected) toolbar item style
-	toolbarSelected = toolbarStyle.
-			Background(gradientSelected).
-			Underline(true).
-			Bold(true)
+// 	// Highlighted (active/selected) toolbar item style
+// 	toolbarSelected = toolbarStyle.
+// 			Background(gradientSelected).
+// 			Underline(true).
+// 			Bold(true)
 
-	// styleSelectedItem = gloss.NewStyle().
-	// 	Foreground(gradientPrimary).
-	// 	Bold(true)
+// 	// styleSelectedItem = gloss.NewStyle().
+// 	// 	Foreground(gradientPrimary).
+// 	// 	Bold(true)
 
-	progressBar = progress.New(progress.WithGradient("#FF3E41", "#00FF00"))
-)
+// 	progressBar = progress.New(progress.WithGradient("#FF3E41", "#00FF00"))
+// )
 
 type menuChoice int
 
@@ -78,6 +138,7 @@ const (
 )
 
 type model struct {
+	theme 				Theme 			// Visual configuration for the TUI
 	currentMenu		 	menuChoice  	// Current screen being displayed
 	welcomeMessage	 	string		 	// Welcome text that fades in
 	animatedMessage  	string 
@@ -93,14 +154,16 @@ type model struct {
 }
 
 func initialModel() *model {
+	theme := newTheme()
 	m := &model{
+		theme:				theme,
 		currentMenu:		menuWelcome,
 		welcomeMessage: 	"Welcome to the Dungeon!",
 		animatedMessage: 	"",
 		animationStep: 		0,
 		health:				100,
 		quitting:			false,
-		progress:			progressBar,
+		progress:			theme.ProgressBar,
 		inventory: 			[]string{"Potion", "Sword", "Shield"},
 		stats:				map[string]int{
 								"Strength": 10,
@@ -297,17 +360,17 @@ func (m *model) View() string {
 }
 
 func renderWelcomeScreen(m *model) string {
-	return styleWelcomeMessage.Render(m.animatedMessage) +
+	return m.theme.WelcomeStyle.Render(m.animatedMessage) +
 		"\n\n" +
-		styleWelcomeHelpPrompt.Render("Press ENTER to Continue")
+		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
 }
 
-func renderQuitPrompt(_ *model) string {
-	return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+func renderQuitPrompt(m *model) string {
+	return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
 }
 
-func renderGameOver(_ *model) string {
-	return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
+func renderGameOver(m *model) string {
+	return m.theme.TitleStyle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
 }
 
 func renderMainMenu(m *model) string {
@@ -318,19 +381,19 @@ func renderGameScreen(m *model) string {
 	var b strings.Builder
 	for i, item := range m.toolbar {
 		if i == m.activeMenu {
-			fmt.Fprint(&b, toolbarSelected.Render(item.label) + " ")
+			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label) + " ")
 		} else {
-			fmt.Fprint(&b, toolbarStyle.Render(item.label) + " ")
+			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label) + " ")
 		}
 	}
-	return b.String() + "\n\nHealth:\n" + m.progress.ViewAs(float64(m.health)/100)
+	return b.String() + "\n\nHealth:\n" + m.theme.ProgressBar.ViewAs(float64(m.health)/maxHealth)
 }
 
 func renderStats(m *model) string {
 	var b strings.Builder
-	fmt.Fprintln(&b, styleTitle.Render("Player Stats"))
+	fmt.Fprintln(&b, m.theme.TitleStyle.Render("Player Stats"))
 	for stat, value := range m.stats {
-		fmt.Fprintf(&b, "%s: %d\n", styleMenuOption.Render(stat), value)
+		fmt.Fprintf(&b, "%s: %d\n", m.theme.MenuOptionStyle.Render(stat), value)
 	}
 	return b.String()
 }

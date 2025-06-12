@@ -52,15 +52,12 @@ var (
 			Background(gradientSelected).
 			Underline(true).
 			Bold(true)
+
 	// styleSelectedItem = gloss.NewStyle().
 	// 	Foreground(gradientPrimary).
 	// 	Bold(true)
 
-	// styleHealthBar = gloss.NewStyle().
-	// 	Foreground(gloss.Color("#ffffff")).
-	// 	Background(gradientPrimary)
-
-	progressBar = progress.New(progress.WithGradient("#FF3E41", "#FFD700"))
+	progressBar = progress.New(progress.WithGradient("#FF3E41", "#00FF00"))
 )
 
 type menuChoice int
@@ -73,7 +70,6 @@ const (
 	menuStats
 	menuInventory
 	menuHelp
-	menuTest
 	menuQuitPrompt
 	menuGameOver
 )
@@ -120,13 +116,32 @@ func mainMenu() list.Model {
 	return menuList
 }
 
+type TickMsg time.Time
+
+func doTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+
+}
+
 func (m model) Init() tea.Cmd {
-	return nil
+	// return nil
+	return doTick()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	var cmd tea.Cmd
+	if m.health <= 0 && m.currentMenu == menuGame {
+		m.currentMenu = menuGameOver
+		return m, nil
+	}
+
 	switch msg := msg.(type) {
+	case TickMsg:
+		m.health = min(maxHealth, m.health + 1) // Restore health
+		return m, doTick()
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
 		return m, nil
@@ -174,6 +189,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case tea.KeyEnter:
 				m.currentMenu = menuChoice(m.activeMenu + 3)
+			case tea.KeyRunes:	// h and r keypresses are for testing
+				switch string(msg.Runes) {
+				case "h":
+					m.health = max(0, m.health - 10) // Reduce health
+				case "r":
+					m.health = min(maxHealth, m.health + 10) // Restore health
+				}
 			}
 		case menuStats:
 			switch msg.Type {
@@ -187,17 +209,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyEnter:
 				return m, tea.Quit
 			}
-		case menuTest:
+		case menuGameOver:
 			switch msg.Type {
 			case tea.KeyEsc:
-				m.currentMenu = menuQuitPrompt
-			case tea.KeyRunes:
-				switch string(msg.Runes) {
-				case "h":
-					m.health = max(0, m.health - 10) // Reduce health
-				case "r":
-					m.health = min(maxHealth, m.health + 10) // Restore health
-				}
+				m.currentMenu = menuMain
 			}
 		}
 	}
@@ -234,8 +249,6 @@ func (m model) View() string {
 		return styleTitle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
 	case menuGameOver:
 		return styleTitle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
-	// case menuTest:
-	// 	return renderTest(m)
 	// case menuFile:
 	default:
 		return "Unknown menu"

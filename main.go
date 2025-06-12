@@ -89,8 +89,8 @@ type model struct {
 	stats 				map[string]int 	// Example player stats
 }
 
-func initialModel() model {
-	return model{
+func initialModel() *model {
+	return &model{
 		currentMenu:		menuWelcome,
 		welcomeMessage: 	"Welcome to the Dungeon!",
 		animatedMessage: 	"",
@@ -127,11 +127,11 @@ func doTick() tea.Cmd {
 
 }
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return doTick()
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	if m.health <= 0 && m.currentMenu == menuGame {
@@ -225,7 +225,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	switch m.currentMenu {
 	case menuWelcome:
 		return styleWelcomeMessage.Render(m.animatedMessage) +
@@ -247,7 +247,7 @@ func (m model) View() string {
 	}
 }
 
-func renderMainMenu(m model) string {
+func renderMainMenu(m *model) string {
 	return "\n" + m.list.View()
 }
 
@@ -268,7 +268,7 @@ func mainMenuOptions() []list.Item {
 	}
 }
 
-func renderGameScreen(m model) string {
+func renderGameScreen(m *model) string {
 	toolbar := []string{"File", "Stats", "Inventory", "Help", "Test"}
 	var b strings.Builder
 	for i, menu := range toolbar {
@@ -281,7 +281,7 @@ func renderGameScreen(m model) string {
 	return b.String() + "\n\nHealth:\n" + m.progress.ViewAs(float64(m.health)/100)
 }
 
-func renderStats(m model) string {
+func renderStats(m *model) string {
 	var b strings.Builder
 	fmt.Fprintln(&b, styleTitle.Render("Player Stats"))
 	for stat, value := range m.stats {

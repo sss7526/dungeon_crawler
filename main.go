@@ -85,6 +85,7 @@ type model struct {
 	progress			progress.Model 	// Progress bar model for health
 	list				*list.Model  	// Main menu option model
 	activeMenu			int 			// Currently selected toolbar menu in game UI
+	toolbar				[]toolbarItem	// The toolbar items
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
 }
@@ -103,7 +104,13 @@ func initialModel() *model {
 								"Strength": 10,
 								"Agility":	8,
 								"Intellect": 5,
-							},
+		},
+		toolbar: 			[]toolbarItem{
+			{label: "File", menuChoice: menuFile},
+			{label: "Stats", menuChoice: menuStats},
+			{label: "Inventory", menuChoice: menuInventory},
+			{label: "Help", menuChoice: menuHelp},
+		},
 	}
 	m.list = mainMenu(m)
 	return m
@@ -117,6 +124,42 @@ func mainMenu(m *model) *list.Model {
 	menuList.SetShowStatusBar(false)
 	menuList.SetFilteringEnabled(false)
 	return &menuList
+}
+
+type item struct {
+	title 			string
+	description		string
+	handler			func()
+}
+
+func (i item) FilterValue() string { return i.title }
+func (i item) Title() string { return i.title }
+func (i item) Description() string { return i.description }
+
+func newItem(title, description string, handler func()) item {
+	return item{
+		title:			title,
+		description:	description,
+		handler:		handler,
+	}
+}
+
+func (m *model) handleStartNewGame() { m.currentMenu = menuGame }
+func (m *model) handleLoadGame() { m.currentMenu = menuGame }
+func (m *model) handleQuit() { m.currentMenu = menuQuitPrompt }
+
+func mainMenuOptions(m *model) []list.Item {
+	return []list.Item{
+		newItem("Start New Game", "", m.handleStartNewGame),
+		newItem("Load Game", "", m.handleLoadGame),
+		newItem("Quit", "", m.handleQuit),
+	}
+}
+
+type toolbarItem struct {
+	label		string
+	menuChoice	menuChoice
+	handler		func(m *model) tea.Cmd
 }
 
 type TickMsg time.Time
@@ -188,7 +231,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.activeMenu++
 				}
 			case tea.KeyEnter:
-				m.currentMenu = menuChoice(m.activeMenu + 3)
+				// m.currentMenu = menuChoice(m.activeMenu + 3)
+				selected := m.toolbar[m.activeMenu]
+				if selected.handler != nil {
+					return m, selected.handler(m)
+				}
+				m.currentMenu = selected.menuChoice
 			case tea.KeyRunes:	// h and r keypresses are for testing
 				switch string(msg.Runes) {
 				case "h":
@@ -245,44 +293,14 @@ func renderMainMenu(m *model) string {
 	return "\n" + m.list.View()
 }
 
-type item struct {
-	title 			string
-	description		string
-	handler			func()
-}
-
-func (i item) FilterValue() string { return i.title }
-func (i item) Title() string { return i.title }
-func (i item) Description() string { return i.description }
-
-func newItem(title, description string, handler func()) item {
-	return item{
-		title:			title,
-		description:	description,
-		handler:		handler,
-	}
-}
-
-func (m *model) handleStartNewGame() { m.currentMenu = menuGame }
-func (m *model) handleLoadGame() { m.currentMenu = menuGame }
-func (m *model) handleQuit() { m.currentMenu = menuQuitPrompt }
-
-func mainMenuOptions(m *model) []list.Item {
-	return []list.Item{
-		newItem("Start New Game", "", m.handleStartNewGame),
-		newItem("Load Game", "", m.handleLoadGame),
-		newItem("Quit", "", m.handleQuit),
-	}
-}
-
 func renderGameScreen(m *model) string {
-	toolbar := []string{"File", "Stats", "Inventory", "Help", "Test"}
+	// toolbar := []string{"File", "Stats", "Inventory", "Help", "Test"}
 	var b strings.Builder
-	for i, menu := range toolbar {
+	for i, item := range m.toolbar {
 		if i == m.activeMenu {
-			fmt.Fprint(&b, toolbarSelected.Render(menu) + " ")
+			fmt.Fprint(&b, toolbarSelected.Render(item.label) + " ")
 		} else {
-			fmt.Fprint(&b, toolbarStyle.Render(menu) + " ")
+			fmt.Fprint(&b, toolbarStyle.Render(item.label) + " ")
 		}
 	}
 	return b.String() + "\n\nHealth:\n" + m.progress.ViewAs(float64(m.health)/100)

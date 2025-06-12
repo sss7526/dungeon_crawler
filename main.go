@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"math"
 
 	tea "github.com/charmbracelet/bubbletea"
 	gloss "github.com/charmbracelet/lipgloss"
@@ -13,8 +14,8 @@ import (
 )
 
 const (
-	startingHealth = 100
-	maxHealth 		= 100
+	startingHealth = 100.0
+	maxHealth 		= 100.0
 	welcomeDuration = 2 * time.Second
 )
 
@@ -79,7 +80,7 @@ type model struct {
 	welcomeMessage	 	string		 	// Welcome text that fades in
 	animatedMessage  	string 
 	animationStep		int
-	health			 	int		 		// Player's health
+	health			 	float64	 		// Player's health
 	cursor			 	int		 		// Current selected menu option
 	quitting		 	bool		 	// Detect if player wants to quite
 	progress			progress.Model 	// Progress bar model for health
@@ -144,20 +145,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case TickMsg:
-		// m.health = min(maxHealth, m.health + 1) // Restore health
-		// return m, doTick()
 		switch m.currentMenu {
 		case menuWelcome:
 			if m.animationStep < len(m.welcomeMessage) {
 				m.animationStep++
 				m.animatedMessage = m.welcomeMessage[:m.animationStep]
 			}
-			return m, doTick()
+			// return m, doTick()
 		case menuGame:
-			// if m.health < maxHealth {
-			m.health = min(maxHealth, m.health + 1) // Restore health
-			// }
-			return m, doTick()
+			m.health = math.Min(maxHealth, m.health + 0.05)
+			// return m, doTick()
 		}
 		return m, doTick()
 	
@@ -211,9 +208,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyRunes:	// h and r keypresses are for testing
 				switch string(msg.Runes) {
 				case "h":
-					m.health = max(0, m.health - 10) // Reduce health
+					m.health = math.Max(0, m.health - 10) // Reduce health
 				case "r":
-					m.health = min(maxHealth, m.health + 10) // Restore health
+					m.health = math.Min(maxHealth, m.health + 10) // Restore health
 				}
 			}
 		case menuStats:
@@ -230,7 +227,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case menuGameOver:
 			switch msg.Type {
-			case tea.KeyEsc:
+			case tea.KeyEnter:
 				m.currentMenu = menuMain
 			}
 		}

@@ -246,7 +246,7 @@ func newItem(title, description string, handler func() ) item {
 
 func (m *model) handleStartNewGame() { m.switchScreen(menuGame) }
 func (m *model) handleLoadGame() { m.switchScreen(menuGame) }
-func (m *model) handleQuit() { m.switchScreen(menuGame) }
+func (m *model) handleQuit() { m.switchScreen(menuQuitPrompt) }
 
 func mainMenuOptions(m *model) []list.Item {
 	return []list.Item{
@@ -432,12 +432,6 @@ func (m *model) Init() tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered from panic:", r)
-			m.switchScreen(menuMain)
-		}
-	}()
 	// Handle screen switching command (menuChoice messages)
 	if menu, ok := msg.(menuChoice); ok {
 		return m, m.switchScreen(menu)
@@ -453,9 +447,14 @@ func (m *model) View() string {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Println("Error starting application:", err)
-		os.Exit(1)
+	for {
+		p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fmt.Println("Error starting application:", err)
+			continue
+		}
+
+		os.Exit(0)
 	}
+	
 }

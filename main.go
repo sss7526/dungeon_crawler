@@ -215,7 +215,7 @@ func (s *MainMenuScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 		case tea.KeyEnter:
 			if sel, ok := s.list.SelectedItem().(item); ok && sel.handler != nil {
 				// return sel.handler()
-				sel.handler()
+				return sel.handler()
 			}
 		}
 	}
@@ -229,14 +229,14 @@ func (s *MainMenuScreen) View(m *model) string {
 type item struct {
 	title 			string
 	description		string
-	handler			func() 
+	handler			func() tea.Cmd
 }
 
 func (i item) FilterValue() string { return i.title }
 func (i item) Title() string { return i.title }
 func (i item) Description() string { return i.description }
 
-func newItem(title, description string, handler func() ) item {
+func newItem(title, description string, handler func() tea.Cmd ) item {
 	return item{
 		title:			title,
 		description:	description,
@@ -244,9 +244,9 @@ func newItem(title, description string, handler func() ) item {
 	}
 }
 
-func (m *model) handleStartNewGame() { m.switchScreen(menuGame) }
-func (m *model) handleLoadGame() { m.switchScreen(menuGame) }
-func (m *model) handleQuit() { m.switchScreen(menuQuitPrompt) }
+func (m *model) handleStartNewGame() tea.Cmd { return m.switchScreen(menuGame) }
+func (m *model) handleLoadGame() tea.Cmd { return m.switchScreen(menuGame) }
+func (m *model) handleQuit() tea.Cmd { return m.switchScreen(menuQuitPrompt) }
 
 func mainMenuOptions(m *model) []list.Item {
 	return []list.Item{
@@ -270,7 +270,7 @@ func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 	switch msg := msg.(type) {
 	case TickMsg:
 		m.health = math.Min(maxHealth, m.health+0.05)	// Regen health
-		if m.health <= 0 {
+		if m.health <= 0.00 {
 			return m.switchScreen(menuGameOver) 		// game over if health runs out
 		}
 		return doTick()

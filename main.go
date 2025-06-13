@@ -2,82 +2,82 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
-	"math"
 
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	gloss "github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/bubbles/progress"
-	"github.com/charmbracelet/bubbles/list"
 )
 
 const (
-	startingHealth = 100.0
-	maxHealth 		= 100.0
-	minHealth		= 0
-	healthRegen		= 0.05
+	startingHealth  = 100.0
+	maxHealth       = 100.0
+	minHealth       = 0
+	healthRegen     = 0.05
 	welcomeDuration = 2 * time.Second
 )
 
 type Theme struct {
-    // Colors
-    Primary   gloss.AdaptiveColor
-    Secondary gloss.AdaptiveColor
-    Selected  gloss.AdaptiveColor
-    HealthLow gloss.Color
-    HealthHigh gloss.Color
+	// Colors
+	Primary    gloss.AdaptiveColor
+	Secondary  gloss.AdaptiveColor
+	Selected   gloss.AdaptiveColor
+	HealthLow  gloss.Color
+	HealthHigh gloss.Color
 
-    // Styles
-    TitleStyle       gloss.Style
-    WelcomeStyle     gloss.Style
-    MenuOptionStyle  gloss.Style
-    ToolbarStyle     gloss.Style
-    ToolbarSelected  gloss.Style
-	BorderStyle		gloss.Style
+	// Styles
+	TitleStyle      gloss.Style
+	WelcomeStyle    gloss.Style
+	MenuOptionStyle gloss.Style
+	ToolbarStyle    gloss.Style
+	ToolbarSelected gloss.Style
+	BorderStyle     gloss.Style
 
-    // UI components
-    ProgressBar progress.Model
+	// UI components
+	ProgressBar progress.Model
 }
 
 // newTheme initializes and returns a Theme instance.
 func newTheme() Theme {
-	primaryColor :=  gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
-    return Theme{
-        // Adaptive colors for light and dark modes
-        Primary:  primaryColor,
-        Secondary: gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
-        Selected:  gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
-        HealthLow: gloss.Color("#FF3E41"),
-        HealthHigh: gloss.Color("#00FF00"),
+	primaryColor := gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
+	return Theme{
+		// Adaptive colors for light and dark modes
+		Primary:    primaryColor,
+		Secondary:  gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
+		Selected:   gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
+		HealthLow:  gloss.Color("#FF3E41"),
+		HealthHigh: gloss.Color("#00FF00"),
 
-        // Styles
-        TitleStyle: gloss.NewStyle().
-            Align(gloss.Center).
-            Foreground(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
-            Bold(true).
-            Width(50),
+		// Styles
+		TitleStyle: gloss.NewStyle().
+			Align(gloss.Center).
+			Foreground(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
+			Bold(true).
+			Width(50),
 
-        WelcomeStyle: gloss.NewStyle().
-            Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
-            Align(gloss.Center).
-            Width(50).
-            Bold(true),
+		WelcomeStyle: gloss.NewStyle().
+			Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
+			Align(gloss.Center).
+			Width(50).
+			Bold(true),
 
-        MenuOptionStyle: gloss.NewStyle().
-            PaddingLeft(4).
-            Foreground(gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}),
+		MenuOptionStyle: gloss.NewStyle().
+			PaddingLeft(4).
+			Foreground(gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}),
 
-        ToolbarStyle: gloss.NewStyle().
-            Background(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
-            Foreground(gloss.Color("#FFFFFF")).
-            Padding(0, 1),
+		ToolbarStyle: gloss.NewStyle().
+			Background(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
+			Foreground(gloss.Color("#FFFFFF")).
+			Padding(0, 1),
 
-        ToolbarSelected: gloss.NewStyle().
-            Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
-            Underline(true).
-            Bold(true),
+		ToolbarSelected: gloss.NewStyle().
+			Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
+			Underline(true).
+			Bold(true),
 
 		BorderStyle: gloss.NewStyle().
 			Border(gloss.RoundedBorder()).
@@ -85,9 +85,9 @@ func newTheme() Theme {
 			Padding(1, 2).
 			Align(gloss.Center),
 
-        // Progress Bar
-        ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
-    }
+		// Progress Bar
+		ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
+	}
 }
 
 type menuChoice int
@@ -105,16 +105,16 @@ const (
 )
 
 type model struct {
-	theme 				Theme 			// Visual configuration for the TUI
-	screens 			map[menuChoice]Screen
-	currentScreen		Screen
-	health			 	float64	 		// Player's health
-	quitting		 	bool		 	// Detect if player wants to quite
-	progress			progress.Model 	// Progress bar model for health
-	activeMenu			int 			// Currently selected toolbar menu in game UI
-	toolbar				[]toolbarItem	// The toolbar items
-	inventory 			[]string 		// Example of player inventory
-	stats 				map[string]int 	// Example player stats
+	theme         Theme // Visual configuration for the TUI
+	screens       map[menuChoice]Screen
+	currentScreen Screen
+	health        float64        // Player's health
+	quitting      bool           // Detect if player wants to quite
+	progress      progress.Model // Progress bar model for health
+	activeMenu    int            // Currently selected toolbar menu in game UI
+	toolbar       []toolbarItem  // The toolbar items
+	inventory     []string       // Example of player inventory
+	stats         map[string]int // Example player stats
 }
 
 type Screen interface {
@@ -126,24 +126,24 @@ type Screen interface {
 func initialModel() *model {
 	theme := newTheme()
 	m := &model{
-		theme:				theme,
-		health:				100,
-		quitting:			false,
-		progress:			theme.ProgressBar,
-		inventory: 			[]string{"Potion", "Sword", "Shield"},
-		stats:				map[string]int{
-								"Strength": 10,
-								"Agility":	8,
-								"Intellect": 5,
+		theme:     theme,
+		health:    100,
+		quitting:  false,
+		progress:  theme.ProgressBar,
+		inventory: []string{"Potion", "Sword", "Shield"},
+		stats: map[string]int{
+			"Strength":  10,
+			"Agility":   8,
+			"Intellect": 5,
 		},
 	}
 	m.screens = map[menuChoice]Screen{
-		menuWelcome: NewWelcomeScreen(),
-		menuMain: NewMainMenuScreen(m),
-		menuGame: NewGameMenuScreen(),
+		menuWelcome:    NewWelcomeScreen(),
+		menuMain:       NewMainMenuScreen(m),
+		menuGame:       NewGameMenuScreen(),
 		menuQuitPrompt: NewQuitPromptScreen(),
-		menuGameOver: NewGameOverScreen(),
-		menuStats: NewStatsScreen(),
+		menuGameOver:   NewGameOverScreen(),
+		menuStats:      NewStatsScreen(),
 	}
 	m.currentScreen = m.screens[menuWelcome]
 	m.toolbar = newToolbar(m)
@@ -156,16 +156,16 @@ func (m *model) switchScreen(choice menuChoice) tea.Cmd {
 }
 
 type WelcomeScreen struct {
-	message 		string
+	message         string
 	animatedMessage string
-	animationStep 	int 
+	animationStep   int
 }
 
 func NewWelcomeScreen() *WelcomeScreen {
 	return &WelcomeScreen{
-		message: 			"Welcome to the Dungeon!",
-		animatedMessage:	"",
-		animationStep:		0,
+		message:         "Welcome to the Dungeon!",
+		animatedMessage: "",
+		animationStep:   0,
 	}
 }
 
@@ -201,7 +201,7 @@ func (s *WelcomeScreen) View(m *model) string {
 }
 
 type MainMenuScreen struct {
-	list list.Model	// Bubble tea list for menu rendering
+	list list.Model // Bubble tea list for menu rendering
 }
 
 func NewMainMenuScreen(m *model) *MainMenuScreen {
@@ -241,26 +241,26 @@ func (s *MainMenuScreen) View(m *model) string {
 }
 
 type item struct {
-	title 			string
-	description		string
-	handler			func() tea.Cmd
+	title       string
+	description string
+	handler     func() tea.Cmd
 }
 
 func (i item) FilterValue() string { return i.title }
-func (i item) Title() string { return i.title }
+func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.description }
 
-func newItem(title, description string, handler func() tea.Cmd ) item {
+func newItem(title, description string, handler func() tea.Cmd) item {
 	return item{
-		title:			title,
-		description:	description,
-		handler:		handler,
+		title:       title,
+		description: description,
+		handler:     handler,
 	}
 }
 
 func (m *model) handleStartNewGame() tea.Cmd { return m.switchScreen(menuGame) }
-func (m *model) handleLoadGame() tea.Cmd { return m.switchScreen(menuGame) }
-func (m *model) handleQuit() tea.Cmd { return m.switchScreen(menuQuitPrompt) }
+func (m *model) handleLoadGame() tea.Cmd     { return m.switchScreen(menuGame) }
+func (m *model) handleQuit() tea.Cmd         { return m.switchScreen(menuQuitPrompt) }
 
 func mainMenuOptions(m *model) []list.Item {
 	return []list.Item{
@@ -284,10 +284,10 @@ func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 	switch msg := msg.(type) {
 	case TickMsg:
 		if m.health > minHealth {
-			m.health = math.Min(maxHealth, m.health + healthRegen)	// Regen health
+			m.health = math.Min(maxHealth, m.health+healthRegen) // Regen health
 		}
 		if m.health <= minHealth {
-			return m.switchScreen(menuGameOver) 		// game over if health runs out
+			return m.switchScreen(menuGameOver) // game over if health runs out
 		}
 		return doTick()
 	case tea.KeyMsg:
@@ -320,25 +320,25 @@ func (s *GameScreen) View(m *model) string {
 	var b strings.Builder
 	for i, item := range m.toolbar {
 		if i == m.activeMenu {
-			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label) + " ")
+			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label)+" ")
 		} else {
-			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label) + " ")
+			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label)+" ")
 		}
 	}
 	return b.String() + "\n\nHealth:\n" + m.theme.ProgressBar.ViewAs(float64(m.health)/maxHealth)
 }
 
 type toolbarItem struct {
-	label		string
-	menuChoice	menuChoice
-	handler		func(m *model) tea.Cmd
+	label      string
+	menuChoice menuChoice
+	handler    func(m *model) tea.Cmd
 }
 
 func newToolbarItem(label string, menuChoice menuChoice, handler func(m *model) tea.Cmd) toolbarItem {
 	return toolbarItem{
-		label:		label,
-		menuChoice:	menuChoice,
-		handler:	handler,
+		label:      label,
+		menuChoice: menuChoice,
+		handler:    handler,
 	}
 }
 
@@ -482,5 +482,5 @@ func main() {
 
 		os.Exit(0)
 	}
-	
+
 }

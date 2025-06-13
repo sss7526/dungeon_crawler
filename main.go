@@ -16,6 +16,8 @@ import (
 const (
 	startingHealth = 100.0
 	maxHealth 		= 100.0
+	minHealth		= 0
+	healthRegen		= 0.05
 	welcomeDuration = 2 * time.Second
 )
 
@@ -214,7 +216,6 @@ func (s *MainMenuScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 			m.switchScreen(menuQuitPrompt)
 		case tea.KeyEnter:
 			if sel, ok := s.list.SelectedItem().(item); ok && sel.handler != nil {
-				// return sel.handler()
 				return sel.handler()
 			}
 		}
@@ -269,8 +270,10 @@ func (s *GameScreen) Init() tea.Cmd {
 func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 	switch msg := msg.(type) {
 	case TickMsg:
-		m.health = math.Min(maxHealth, m.health+0.05)	// Regen health
-		if m.health <= 0.00 {
+		if m.health > minHealth {
+			m.health = math.Min(maxHealth, m.health + healthRegen)	// Regen health
+		}
+		if m.health <= minHealth {
 			return m.switchScreen(menuGameOver) 		// game over if health runs out
 		}
 		return doTick()
@@ -287,7 +290,6 @@ func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 			if selected.handler != nil {
 				return selected.handler(m)
 			}
-			// m.currentMenu = selected.menuChoice
 			m.switchScreen(selected.menuChoice)
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
@@ -428,15 +430,12 @@ func doTick() tea.Cmd {
 }
 
 func (m *model) Init() tea.Cmd {
+	// Start the game clock
 	return doTick()
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle screen switching command (menuChoice messages)
-	// if menu, ok := msg.(menuChoice); ok {
-	// 	return m, m.switchScreen(menu)
-	// }
-
+	// Delegate updates to the current screen's Update method
 	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd
 }

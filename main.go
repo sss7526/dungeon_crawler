@@ -115,6 +115,8 @@ type model struct {
 	toolbar				[]toolbarItem	// The toolbar items
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
+	width 				int				// Terminal width
+	height  			int 			// Terminal height
 }
 
 type Screen interface {
@@ -196,17 +198,8 @@ func (s *WelcomeScreen) View(m *model) string {
 		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue"),
 	)
 
-	// border := gloss.NewStyle().
-	// 	Border(gloss.RoundedBorder()).
-	// 	BorderForeground(m.theme.Primary).
-	// 	Padding(1, 2).
-	// 	Align(gloss.Center).
-	// 	Render(content)
 	border := m.theme.BorderStyle.Render(content)
 	return border
-	// return m.theme.WelcomeStyle.Render(s.animatedMessage) +
-	// 	"\n\n" +
-	// 	m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
 }
 
 type MainMenuScreen struct {
@@ -384,20 +377,12 @@ func (s *QuitPromptScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 }
 
 func (s *QuitPromptScreen) View(m *model) string {
-	// return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
 	content := gloss.JoinVertical(
 		gloss.Center,
 		m.theme.TitleStyle.Render("Are you sure you want to quit?"),
 		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ESC to Cancel"),
 		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ENTER to Confirm"),
 	)
-
-	// border := gloss.NewStyle().
-	// 	Border(gloss.RoundedBorder()).
-	// 	BorderForeground(m.theme.Primary).
-	// 	Padding(1, 2).
-	// 	Align(gloss.Center).
-	// 	Render(content)
 	border := m.theme.BorderStyle.Render(content)
 	return border
 
@@ -474,6 +459,12 @@ func (m *model) Init() tea.Cmd {
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Delegate updates to the current screen's Update method
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+	}
 	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd
 }

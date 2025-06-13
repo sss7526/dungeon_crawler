@@ -433,9 +433,9 @@ func (m *model) Init() tea.Cmd {
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle screen switching command (menuChoice messages)
-	if menu, ok := msg.(menuChoice); ok {
-		return m, m.switchScreen(menu)
-	}
+	// if menu, ok := msg.(menuChoice); ok {
+	// 	return m, m.switchScreen(menu)
+	// }
 
 	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd

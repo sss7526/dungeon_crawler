@@ -202,10 +202,10 @@ format:
 	go fmt ./...
 
 run:
-	go run main.go
+	go run .
 
 build:
-	go build -o ~/.local/bin/dungeon_crawler main.go
+	go build -o ~/.local/bin/dungeon_crawler .
 
 ex:
 	dungeon_crawler

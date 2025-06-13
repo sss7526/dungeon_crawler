@@ -5,8 +5,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"encoding/json"
-	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -104,6 +102,7 @@ const (
 	menuHelp
 	menuQuitPrompt
 	menuGameOver
+	menuLoadGameScreen
 )
 
 type model struct {
@@ -140,83 +139,17 @@ func initialModel() *model {
 		},
 	}
 	m.screens = map[menuChoice]Screen{
-		menuWelcome:    NewWelcomeScreen(),
-		menuMain:       NewMainMenuScreen(m),
-		menuGame:       NewGameMenuScreen(),
-		menuQuitPrompt: NewQuitPromptScreen(),
-		menuGameOver:   NewGameOverScreen(),
-		menuStats:      NewStatsScreen(),
+		menuWelcome:    	NewWelcomeScreen(),
+		menuMain:       	NewMainMenuScreen(m),
+		menuGame:       	NewGameMenuScreen(),
+		menuQuitPrompt: 	NewQuitPromptScreen(),
+		menuGameOver:   	NewGameOverScreen(),
+		menuStats:      	NewStatsScreen(),
+		menuLoadGameScreen: NewLoadGameScreen(),
 	}
 	m.currentScreen = m.screens[menuWelcome]
 	m.toolbar = newToolbar(m)
 	return m
-}
-
-// saveGameState saves the current state of the game to a file.
-func (m *model) saveGameState() tea.Cmd {
-	saveDir, err := getSaveDir()
-	if err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to get save directory: %v", err)
-		}
-	}
-
-	fileName := fmt.Sprintf("save_%d.json", time.Now().Unix()) // Unique filename with timestamp
-	savePath := filepath.Join(saveDir, fileName)
-
-	gameState := GameState{
-		Health: 	m.health,
-		Inventory: 	m.inventory,
-		Stats:		m.stats,
-		Timestamp:	time.Now(),
-	}
-
-	file, err := os.Create(savePath)
-	if err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to save game: %v", err)
-		}
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(&gameState); err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to encode game state: %v", err)
-		}
-	}
-
-	return func() tea.Msg {
-		return "Game saved successfully"
-	}
-}
-
-// loadGameState loads a selected game state from a file.
-func (m *model) loadGameState(filePath string) tea.Cmd {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to load game: %v", err)
-		}
-	}
-	defer file.Close()
-
-	var gameState GameState
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&gameState); err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to decode save file: %v", err)
-		}
-	}
-
-	// Apply the loaded state to the model
-	m.health = gameState.Health
-	m.inventory = gameState.Inventory
-	m.stats = gameState.Stats
-
-	return func() tea.Msg {
-		return "Game loaded successfully!"
-	}
 }
 
 func (m *model) switchScreen(choice menuChoice) tea.Cmd {
@@ -328,7 +261,7 @@ func newItem(title, description string, handler func() tea.Cmd) item {
 }
 
 func (m *model) handleStartNewGame() tea.Cmd { return m.switchScreen(menuGame) }
-func (m *model) handleLoadGame() tea.Cmd     { return m.switchScreen(menuGame) }
+func (m *model) handleLoadGame() tea.Cmd     { return m.switchScreen(menuLoadGameScreen) }
 func (m *model) handleQuit() tea.Cmd         { return m.switchScreen(menuQuitPrompt) }
 
 func mainMenuOptions(m *model) []list.Item {

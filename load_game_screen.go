@@ -57,6 +57,10 @@ func (s *LoadGameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 			return sel.handler()
 		}
 	}
+
+	if KeyMsg, ok := msg.(tea.KeyMsg); ok && KeyMsg.Type == tea.KeyEsc {
+		return m.switchScreen(menuMain)
+	}
 	return cmd
 }
 

@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	// "fmt"
+	"fmt"
 
-	// tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type GameState struct {
@@ -29,8 +29,6 @@ func getSaveDir() (string, error) {
 	}
 	return saveDir, nil
 }
-
-
 
 // listSavedGames returns a list of saved game files
 func listSavedGames() ([]GameState, error) {
@@ -64,5 +62,72 @@ func listSavedGames() ([]GameState, error) {
 	}
 
 	return saves, nil
+}
+
+// saveGameState saves the current state of the game to a file.
+func (m *model) saveGameState() tea.Cmd {
+	saveDir, err := getSaveDir()
+	if err != nil {
+		return func() tea.Msg {
+			return fmt.Sprintf("Failed to get save directory: %v", err)
+		}
+	}
+
+	fileName := fmt.Sprintf("save_%d.json", time.Now().Unix()) // Unique filename with timestamp
+	savePath := filepath.Join(saveDir, fileName)
+
+	gameState := GameState{
+		Health: 	m.health,
+		Inventory: 	m.inventory,
+		Stats:		m.stats,
+		Timestamp:	time.Now(),
+	}
+
+	file, err := os.Create(savePath)
+	if err != nil {
+		return func() tea.Msg {
+			return fmt.Sprintf("Failed to save game: %v", err)
+		}
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(&gameState); err != nil {
+		return func() tea.Msg {
+			return fmt.Sprintf("Failed to encode game state: %v", err)
+		}
+	}
+
+	return func() tea.Msg {
+		return "Game saved successfully"
+	}
+}
+
+// loadGameState loads a selected game state from a file.
+func (m *model) loadGameState(filePath string) tea.Cmd {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return func() tea.Msg {
+			return fmt.Sprintf("Failed to load game: %v", err)
+		}
+	}
+	defer file.Close()
+
+	var gameState GameState
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&gameState); err != nil {
+		return func() tea.Msg {
+			return fmt.Sprintf("Failed to decode save file: %v", err)
+		}
+	}
+
+	// Apply the loaded state to the model
+	m.health = gameState.Health
+	m.inventory = gameState.Inventory
+	m.stats = gameState.Stats
+
+	return func() tea.Msg {
+		return "Game loaded successfully!"
+	}
 }
 

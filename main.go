@@ -115,8 +115,6 @@ type model struct {
 	toolbar				[]toolbarItem	// The toolbar items
 	inventory 			[]string 		// Example of player inventory
 	stats 				map[string]int 	// Example player stats
-	width 				int				// Terminal width
-	height  			int 			// Terminal height
 }
 
 type Screen interface {
@@ -195,7 +193,7 @@ func (s *WelcomeScreen) View(m *model) string {
 	content := gloss.JoinVertical(
 		gloss.Center,
 		m.theme.WelcomeStyle.Render(s.animatedMessage),
-		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue"),
+		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("\nPress ENTER to Continue"),
 	)
 
 	border := m.theme.BorderStyle.Render(content)
@@ -379,7 +377,7 @@ func (s *QuitPromptScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 func (s *QuitPromptScreen) View(m *model) string {
 	content := gloss.JoinVertical(
 		gloss.Center,
-		m.theme.TitleStyle.Render("Are you sure you want to quit?"),
+		m.theme.TitleStyle.Render("Are you sure you want to quit?\n"),
 		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ESC to Cancel"),
 		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ENTER to Confirm"),
 	)
@@ -410,7 +408,13 @@ func (s *GameOverScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 }
 
 func (s *GameOverScreen) View(m *model) string {
-	return m.theme.TitleStyle.Render("YOU DIED") + "\n\nPress ENTER to return to the main menu."
+	content := gloss.JoinVertical(
+		gloss.Center,
+		m.theme.TitleStyle.Render("YOU DIED\n"),
+		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("Press ENTER to return to the Main Menu"),
+	)
+	border := m.theme.BorderStyle.Render(content)
+	return border
 }
 
 type StatsScreen struct{}
@@ -459,12 +463,6 @@ func (m *model) Init() tea.Cmd {
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Delegate updates to the current screen's Update method
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		return m, nil
-	}
 	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd
 }

@@ -35,6 +35,7 @@ type Theme struct {
     MenuOptionStyle  gloss.Style
     ToolbarStyle     gloss.Style
     ToolbarSelected  gloss.Style
+	BorderStyle		gloss.Style
 
     // UI components
     ProgressBar progress.Model
@@ -42,9 +43,10 @@ type Theme struct {
 
 // newTheme initializes and returns a Theme instance.
 func newTheme() Theme {
+	primaryColor :=  gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
     return Theme{
         // Adaptive colors for light and dark modes
-        Primary:   gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"},
+        Primary:  primaryColor,
         Secondary: gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
         Selected:  gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
         HealthLow: gloss.Color("#FF3E41"),
@@ -76,6 +78,12 @@ func newTheme() Theme {
             Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
             Underline(true).
             Bold(true),
+
+		BorderStyle: gloss.NewStyle().
+			Border(gloss.RoundedBorder()).
+			BorderForeground(primaryColor).
+			Padding(1, 2).
+			Align(gloss.Center),
 
         // Progress Bar
         ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
@@ -182,9 +190,23 @@ func (s *WelcomeScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 }
 
 func (s *WelcomeScreen) View(m *model) string {
-	return m.theme.WelcomeStyle.Render(s.animatedMessage) +
-		"\n\n" +
-		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
+	content := gloss.JoinVertical(
+		gloss.Center,
+		m.theme.WelcomeStyle.Render(s.animatedMessage),
+		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue"),
+	)
+
+	// border := gloss.NewStyle().
+	// 	Border(gloss.RoundedBorder()).
+	// 	BorderForeground(m.theme.Primary).
+	// 	Padding(1, 2).
+	// 	Align(gloss.Center).
+	// 	Render(content)
+	border := m.theme.BorderStyle.Render(content)
+	return border
+	// return m.theme.WelcomeStyle.Render(s.animatedMessage) +
+	// 	"\n\n" +
+	// 	m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("Press ENTER to Continue")
 }
 
 type MainMenuScreen struct {
@@ -362,7 +384,23 @@ func (s *QuitPromptScreen) Update(msg tea.Msg, m *model) tea.Cmd {
 }
 
 func (s *QuitPromptScreen) View(m *model) string {
-	return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+	// return m.theme.TitleStyle.Render("Are you sure you want to quit? (ESC to cancel, ENTER to confirm)")
+	content := gloss.JoinVertical(
+		gloss.Center,
+		m.theme.TitleStyle.Render("Are you sure you want to quit?"),
+		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ESC to Cancel"),
+		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ENTER to Confirm"),
+	)
+
+	// border := gloss.NewStyle().
+	// 	Border(gloss.RoundedBorder()).
+	// 	BorderForeground(m.theme.Primary).
+	// 	Padding(1, 2).
+	// 	Align(gloss.Center).
+	// 	Render(content)
+	border := m.theme.BorderStyle.Render(content)
+	return border
+
 }
 
 type GameOverScreen struct{}

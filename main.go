@@ -145,7 +145,7 @@ func initialModel() *model {
 		menuQuitPrompt: 	NewQuitPromptScreen(),
 		menuGameOver:   	NewGameOverScreen(),
 		menuStats:      	NewStatsScreen(),
-		menuLoadGameScreen: NewLoadGameScreen(),
+		menuLoadGameScreen: NewLoadGameScreen(m),
 	}
 	m.currentScreen = m.screens[menuWelcome]
 	m.toolbar = newToolbar(m)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"path/filepath"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,29 +12,31 @@ type LoadGameScreen struct {
 	list list.Model
 }
 
-func NewLoadGameScreen() *LoadGameScreen {
-	// Get the save directory
-	saveDir, err := getSaveDir()
+func createLoadHandler(m *model, filePath string) func() tea.Cmd {
+	return func() tea.Cmd {
+		m.loadGameState(filePath)
+		return m.switchScreen(menuGame)
+	}
+}
+
+func NewLoadGameScreen(m *model) *LoadGameScreen {
+
+	// List saved games
+	saves, err := listSavedGames()
 	if err != nil {
-		fmt.Println("Failed to get save dir:", err)
+		fmt.Println("Failed to list saved games:", err)
 		return nil
 	}
 
-	// List saved games
-	saves, _ := listSavedGames() // Ignore errors for now
+	// Create list items for each save game
 	items := make([]list.Item, len(saves))
 	for i, save := range saves {
-		fileName := fmt.Sprintf("save_%v.json", save.Timestamp.Unix())
-		fullPath := filepath.Join(saveDir, fileName)
+		fullPath := fmt.Sprintf("save_%v.json", save.Timestamp.Unix())
 
 		items[i] = newItem(
 			fmt.Sprintf("Save from %s", save.Timestamp.Format("2006-01-02 15:04:05")),
 			fmt.Sprintf("Health: %.0f", save.Health),
-			func(filePath string) func() tea.Cmd {
-				return func() tea.Cmd {
-					return initialModel().loadGameState(filePath)
-				}
-			}(fullPath), // filepath handler
+			createLoadHandler(m, fullPath),
 		)
 	}
 

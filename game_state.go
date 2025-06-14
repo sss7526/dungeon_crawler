@@ -104,21 +104,23 @@ func (m *model) saveGameState() tea.Cmd {
 }
 
 // loadGameState loads a selected game state from a file.
-func (m *model) loadGameState(filePath string) tea.Cmd {
+func (m *model) loadGameState(filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to load game: %v", err)
-		}
+		// return func() tea.Msg {
+		// 	return fmt.Sprintf("Failed to load game: %v", err)
+		// }
+		return
 	}
 	defer file.Close()
 
 	var gameState GameState
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&gameState); err != nil {
-		return func() tea.Msg {
-			return fmt.Sprintf("Failed to decode save file: %v", err)
-		}
+		// return func() tea.Msg {
+			// return fmt.Sprintf("Failed to decode save file: %v", err)
+		// }
+		return
 	}
 
 	// Apply the loaded state to the model
@@ -126,8 +128,8 @@ func (m *model) loadGameState(filePath string) tea.Cmd {
 	m.inventory = gameState.Inventory
 	m.stats = gameState.Stats
 
-	return func() tea.Msg {
-		return "Game loaded successfully!"
-	}
+	// return func() tea.Msg {
+	// 	return "Game loaded successfully!"
+	// }
 }
 

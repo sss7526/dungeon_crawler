@@ -2,15 +2,11 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
-	gloss "github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/progress"
 )
 
 const (
@@ -20,75 +16,6 @@ const (
 	healthRegen     = 0.05
 	welcomeDuration = 2 * time.Second
 )
-
-type Theme struct {
-	// Colors
-	Primary    gloss.AdaptiveColor
-	Secondary  gloss.AdaptiveColor
-	Selected   gloss.AdaptiveColor
-	HealthLow  gloss.Color
-	HealthHigh gloss.Color
-
-	// Styles
-	TitleStyle      gloss.Style
-	WelcomeStyle    gloss.Style
-	MenuOptionStyle gloss.Style
-	ToolbarStyle    gloss.Style
-	ToolbarSelected gloss.Style
-	BorderStyle     gloss.Style
-
-	// UI components
-	ProgressBar progress.Model
-}
-
-// newTheme initializes and returns a Theme instance.
-func newTheme() Theme {
-	primaryColor := gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
-	return Theme{
-		// Adaptive colors for light and dark modes
-		Primary:    primaryColor,
-		Secondary:  gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
-		Selected:   gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
-		HealthLow:  gloss.Color("#FF3E41"),
-		HealthHigh: gloss.Color("#00FF00"),
-
-		// Styles
-		TitleStyle: gloss.NewStyle().
-			Align(gloss.Center).
-			Foreground(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
-			Bold(true).
-			Width(50),
-
-		WelcomeStyle: gloss.NewStyle().
-			Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
-			Align(gloss.Center).
-			Width(50).
-			Bold(true),
-
-		MenuOptionStyle: gloss.NewStyle().
-			PaddingLeft(4).
-			Foreground(gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}),
-
-		ToolbarStyle: gloss.NewStyle().
-			Background(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
-			Foreground(gloss.Color("#FFFFFF")).
-			Padding(0, 1),
-
-		ToolbarSelected: gloss.NewStyle().
-			Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
-			Underline(true).
-			Bold(true),
-
-		BorderStyle: gloss.NewStyle().
-			Border(gloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(1, 2).
-			Align(gloss.Center),
-
-		// Progress Bar
-		ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),
-	}
-}
 
 type menuChoice int
 
@@ -157,91 +84,6 @@ func (m *model) switchScreen(choice menuChoice) tea.Cmd {
 	return m.currentScreen.Init()
 }
 
-type WelcomeScreen struct {
-	message         string
-	animatedMessage string
-	animationStep   int
-}
-
-func NewWelcomeScreen() *WelcomeScreen {
-	return &WelcomeScreen{
-		message:         "Welcome to the Dungeon!",
-		animatedMessage: "",
-		animationStep:   0,
-	}
-}
-
-func (s *WelcomeScreen) Init() tea.Cmd {
-	return doTick()
-}
-
-func (s *WelcomeScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	switch msg := msg.(type) {
-	case TickMsg:
-		if s.animationStep < len(s.message) {
-			s.animationStep++
-			s.animatedMessage = s.message[:s.animationStep]
-			return doTick()
-		}
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyEnter {
-			return m.switchScreen(menuMain)
-		}
-	}
-	return nil
-}
-
-func (s *WelcomeScreen) View(m *model) string {
-	content := gloss.JoinVertical(
-		gloss.Center,
-		m.theme.WelcomeStyle.Render(s.animatedMessage),
-		m.theme.WelcomeStyle.Foreground(m.theme.Secondary).Render("\nPress ENTER to Continue"),
-	)
-
-	border := m.theme.BorderStyle.Render(content)
-	return border
-}
-
-type MainMenuScreen struct {
-	list list.Model // Bubble tea list for menu rendering
-}
-
-func NewMainMenuScreen(m *model) *MainMenuScreen {
-	items := mainMenuOptions(m)
-	menuList := list.New(items, list.NewDefaultDelegate(), 20, 20)
-	menuList.Title = "Main Menu"
-	menuList.SetShowStatusBar(false)
-	menuList.SetFilteringEnabled(false)
-	return &MainMenuScreen{list: menuList}
-}
-
-func (s *MainMenuScreen) Init() tea.Cmd {
-	return nil
-}
-
-func (s *MainMenuScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	var cmd tea.Cmd
-	var listCmd tea.Cmd
-	s.list, listCmd = s.list.Update(msg)
-	cmd = tea.Batch(cmd, listCmd)
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEsc:
-			m.switchScreen(menuQuitPrompt)
-		case tea.KeyEnter:
-			if sel, ok := s.list.SelectedItem().(item); ok && sel.handler != nil {
-				return sel.handler()
-			}
-		}
-	}
-	return cmd
-}
-
-func (s *MainMenuScreen) View(m *model) string {
-	return "\n" + s.list.View()
-}
-
 type item struct {
 	title       string
 	description string
@@ -258,78 +100,6 @@ func newItem(title, description string, handler func() tea.Cmd) item {
 		description: description,
 		handler:     handler,
 	}
-}
-
-func (m *model) handleStartNewGame() tea.Cmd { return m.switchScreen(menuGame) }
-func (m *model) handleLoadGame() tea.Cmd     { return m.switchScreen(menuLoadGameScreen) }
-func (m *model) handleQuit() tea.Cmd         { return m.switchScreen(menuQuitPrompt) }
-
-func mainMenuOptions(m *model) []list.Item {
-	return []list.Item{
-		newItem("Start New Game", "", m.handleStartNewGame),
-		newItem("Load Game", "", m.handleLoadGame),
-		newItem("Quit", "", m.handleQuit),
-	}
-}
-
-type GameScreen struct{}
-
-func NewGameMenuScreen() *GameScreen {
-	return &GameScreen{}
-}
-
-func (s *GameScreen) Init() tea.Cmd {
-	return doTick()
-}
-
-func (s *GameScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	switch msg := msg.(type) {
-	case TickMsg:
-		if m.health > minHealth {
-			m.health = math.Min(maxHealth, m.health+healthRegen) // Regen health
-		}
-		if m.health <= minHealth {
-			return m.switchScreen(menuGameOver) // game over if health runs out
-		}
-		return doTick()
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlS:
-			return m.saveGameState()
-		case tea.KeyEsc:
-			return m.switchScreen(menuQuitPrompt)
-		case tea.KeyLeft:
-			m.activeMenu = max(m.activeMenu-1, 0)
-		case tea.KeyRight:
-			m.activeMenu = min(m.activeMenu+1, len(m.toolbar)-1)
-		case tea.KeyEnter:
-			selected := m.toolbar[m.activeMenu]
-			if selected.handler != nil {
-				return selected.handler(m)
-			}
-			m.switchScreen(selected.menuChoice)
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "h":
-				m.health = math.Max(0, m.health-10)
-			case "r":
-				m.health = math.Min(maxHealth, m.health+10)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *GameScreen) View(m *model) string {
-	var b strings.Builder
-	for i, item := range m.toolbar {
-		if i == m.activeMenu {
-			fmt.Fprint(&b, m.theme.ToolbarSelected.Render(item.label)+" ")
-		} else {
-			fmt.Fprint(&b, m.theme.ToolbarStyle.Render(item.label)+" ")
-		}
-	}
-	return b.String() + "\n\nHealth:\n" + m.theme.ProgressBar.ViewAs(float64(m.health)/maxHealth)
 }
 
 type toolbarItem struct {
@@ -353,102 +123,6 @@ func newToolbar(_ *model) []toolbarItem {
 		newToolbarItem("Inventory", menuInventory, nil),
 		newToolbarItem("Help", menuHelp, nil),
 	}
-}
-
-type QuitPromptScreen struct{}
-
-func NewQuitPromptScreen() *QuitPromptScreen {
-	return &QuitPromptScreen{}
-}
-
-func (s *QuitPromptScreen) Init() tea.Cmd {
-	return nil
-}
-
-func (s *QuitPromptScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter:
-			return tea.Quit
-		case tea.KeyEsc:
-			return m.switchScreen(menuMain)
-		}
-	}
-	return nil
-}
-
-func (s *QuitPromptScreen) View(m *model) string {
-	content := gloss.JoinVertical(
-		gloss.Center,
-		m.theme.TitleStyle.Render("Are you sure you want to quit?\n"),
-		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ESC to Cancel"),
-		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("ENTER to Confirm"),
-	)
-	border := m.theme.BorderStyle.Render(content)
-	return border
-
-}
-
-type GameOverScreen struct{}
-
-func NewGameOverScreen() *GameOverScreen {
-	return &GameOverScreen{}
-}
-
-func (s *GameOverScreen) Init() tea.Cmd {
-	return nil
-}
-
-func (s *GameOverScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter:
-			return m.switchScreen(menuMain)
-		}
-	}
-	return nil
-}
-
-func (s *GameOverScreen) View(m *model) string {
-	content := gloss.JoinVertical(
-		gloss.Center,
-		m.theme.TitleStyle.Render("YOU DIED\n"),
-		m.theme.TitleStyle.Foreground(m.theme.Secondary).Render("Press ENTER to return to the Main Menu"),
-	)
-	border := m.theme.BorderStyle.Render(content)
-	return border
-}
-
-type StatsScreen struct{}
-
-func NewStatsScreen() *StatsScreen {
-	return &StatsScreen{}
-}
-
-func (s *StatsScreen) Init() tea.Cmd {
-	return nil
-}
-
-func (s *StatsScreen) Update(msg tea.Msg, m *model) tea.Cmd {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEsc:
-			return m.switchScreen(menuGame)
-		}
-	}
-	return nil
-}
-
-func (s *StatsScreen) View(m *model) string {
-	var b strings.Builder
-	fmt.Fprintln(&b, m.theme.TitleStyle.Render("Player Stats"))
-	for stat, value := range m.stats {
-		fmt.Fprintf(&b, "%s: %d\n", m.theme.MenuOptionStyle.Render(stat), value)
-	}
-	return b.String()
 }
 
 type TickMsg time.Time

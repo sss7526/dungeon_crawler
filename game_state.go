@@ -10,6 +10,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const (
+	saveFilePrefix		= "save_"
+	saveFileExt			= ".json"
+	saveTimestampFmt	= "2006-01-02 15:04:05"
+)
+
 type GameState struct {
 	Health 		float64				`json:"health"`
 	Inventory 	[]string 			`json:"inventory"`
@@ -73,7 +79,7 @@ func (m *model) saveGameState() tea.Cmd {
 		}
 	}
 
-	fileName := fmt.Sprintf("save_%d.json", time.Now().Unix()) // Unique filename with timestamp
+	fileName := fmt.Sprintf("%s%d%s", saveFilePrefix, time.Now().Unix(), saveFileExt) // Unique filename with timestamp
 	savePath := filepath.Join(saveDir, fileName)
 
 	gameState := GameState{
@@ -104,32 +110,30 @@ func (m *model) saveGameState() tea.Cmd {
 }
 
 // loadGameState loads a selected game state from a file.
-func (m *model) loadGameState(filePath string) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		// return func() tea.Msg {
-		// 	return fmt.Sprintf("Failed to load game: %v", err)
-		// }
-		return
-	}
-	defer file.Close()
+func (m *model) loadGameState(filePath string) tea.Msg {
+    saveDir, err := getSaveDir() // Get path to save directory
+    if err != nil {
+        return fmt.Sprintf("Error: %v", err)
+    }
 
-	var gameState GameState
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&gameState); err != nil {
-		// return func() tea.Msg {
-			// return fmt.Sprintf("Failed to decode save file: %v", err)
-		// }
-		return
-	}
+    fullPath := filepath.Join(saveDir, filePath)
+    file, err := os.Open(fullPath)
+    if err != nil {
+        return fmt.Sprintf("Error: Failed to open save file (%s)", err)
+    }
+    defer file.Close()
 
-	// Apply the loaded state to the model
-	m.health = gameState.Health
-	m.inventory = gameState.Inventory
-	m.stats = gameState.Stats
+    var gameState GameState
+    decoder := json.NewDecoder(file)
+    if err := decoder.Decode(&gameState); err != nil {
+        return fmt.Sprintf("Error: Failed to decode save file (%s)", err)
+    }
 
-	// return func() tea.Msg {
-	// 	return "Game loaded successfully!"
-	// }
+    // Apply loaded state
+    m.health = gameState.Health
+    m.inventory = gameState.Inventory
+    m.stats = gameState.Stats
+
+    return "Game loaded successfully!"
 }
 

@@ -209,3 +209,14 @@ build:
 
 ex:
 	dungeon_crawler
+
+tree:
+	@echo "Printing project structure to treefile"; \
+	rm tree.txt; \
+	# @echo "$(shell basename $(PWD))"
+	tree -n --dirsfirst -I "Makefile|venv|output_docs|dungeon_crawl|tree.txt|*.yaml|*.py" -o tree.txt
+
+md: tree
+	@echo "Preparing Markdown"; \
+	rm output_docs/*; \
+	python3 prepare.py

@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+venv
+
+*.py
+*.yaml
+tree.txt
+output_docs

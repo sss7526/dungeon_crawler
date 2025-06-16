@@ -30,6 +30,7 @@ const (
 	menuQuitPrompt
 	menuGameOver
 	menuLoadGameScreen
+	menuErrorScreen
 )
 
 type model struct {
@@ -73,6 +74,7 @@ func initialModel() *model {
 		menuGameOver:   	NewGameOverScreen(),
 		menuStats:      	NewStatsScreen(),
 		menuLoadGameScreen: NewLoadGameScreen(m),
+		menuErrorScreen: 	NewErrorScreen(),
 	}
 	m.currentScreen = m.screens[menuWelcome]
 	m.toolbar = newToolbar(m)
@@ -140,6 +142,10 @@ func (m *model) Init() tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case error:
+		return m, m.switchScreen(menuErrorScreen)
+	}
 	// Delegate updates to the current screen's Update method
 	cmd := m.currentScreen.Update(msg, m)
 	return m, cmd

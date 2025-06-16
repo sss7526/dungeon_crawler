@@ -13,8 +13,7 @@ type LoadGameScreen struct {
 
 func createLoadHandler(m *model, filePath string) func() tea.Cmd {
 	return func() tea.Cmd {
-		m.loadGameState(filePath)
-		return m.switchScreen(menuGame)
+		return tea.Batch(func() tea.Msg { return m.loadGameState(filePath) }, m.switchScreen(menuGame))
 	}
 }
 

@@ -9,17 +9,20 @@ type Theme struct {
 	// Colors
 	Primary    gloss.AdaptiveColor
 	Secondary  gloss.AdaptiveColor
+	Error	   gloss.AdaptiveColor
 	Selected   gloss.AdaptiveColor
 	HealthLow  gloss.Color
 	HealthHigh gloss.Color
 
 	// Styles
 	TitleStyle      gloss.Style
+	ErrorStyle      gloss.Style
 	WelcomeStyle    gloss.Style
 	MenuOptionStyle gloss.Style
 	ToolbarStyle    gloss.Style
 	ToolbarSelected gloss.Style
 	BorderStyle     gloss.Style
+	ErrorBorder     gloss.Style
 
 	// UI components
 	ProgressBar progress.Model
@@ -28,20 +31,40 @@ type Theme struct {
 // newTheme initializes and returns a Theme instance.
 func newTheme() Theme {
 	primaryColor := gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}
+	secondaryColor := gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"}
+	errorColor := gloss.AdaptiveColor{Light: "#D70000", Dark: "#FF5C5C"}
+	selectedColor := gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}
+	healthLowColor := gloss.Color("#FF3E41")
+	healthHighColor := gloss.Color("#00FF00")
+
+	titleStyle := gloss.NewStyle().
+		Align(gloss.Center).
+		Foreground(primaryColor).
+		Bold(true).
+		Width(50)
+
+	errorStyle := titleStyle.Foreground(errorColor)
+
+	borderStyle := gloss.NewStyle().
+		Border(gloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(1, 2).
+		Align(gloss.Center)
+	
+	errorBorder := borderStyle.BorderForeground(errorColor)
+
 	return Theme{
 		// Adaptive colors for light and dark modes
 		Primary:    primaryColor,
-		Secondary:  gloss.AdaptiveColor{Light: "#FFD700", Dark: "#FF9700"},
-		Selected:   gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"},
-		HealthLow:  gloss.Color("#FF3E41"),
-		HealthHigh: gloss.Color("#00FF00"),
+		Secondary:  secondaryColor,
+		Error:		errorColor,
+		Selected:   selectedColor,
+		HealthLow:  healthLowColor,
+		HealthHigh: healthHighColor,
 
 		// Styles
-		TitleStyle: gloss.NewStyle().
-			Align(gloss.Center).
-			Foreground(gloss.AdaptiveColor{Light: "#FF5733", Dark: "#AE81FC"}).
-			Bold(true).
-			Width(50),
+		TitleStyle: titleStyle,
+		ErrorStyle: errorStyle,
 
 		WelcomeStyle: gloss.NewStyle().
 			Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}).
@@ -63,11 +86,8 @@ func newTheme() Theme {
 			Underline(true).
 			Bold(true),
 
-		BorderStyle: gloss.NewStyle().
-			Border(gloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(1, 2).
-			Align(gloss.Center),
+		BorderStyle: borderStyle,
+		ErrorBorder: errorBorder,
 
 		// Progress Bar
 		ProgressBar: progress.New(progress.WithGradient("#FF3E41", "#00FF00")),

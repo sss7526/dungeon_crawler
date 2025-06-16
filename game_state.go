@@ -75,7 +75,7 @@ func (m *model) saveGameState() tea.Cmd {
 	saveDir, err := getSaveDir()
 	if err != nil {
 		return func() tea.Msg {
-			return fmt.Sprintf("Failed to get save directory: %v", err)
+			return err
 		}
 	}
 
@@ -92,7 +92,7 @@ func (m *model) saveGameState() tea.Cmd {
 	file, err := os.Create(savePath)
 	if err != nil {
 		return func() tea.Msg {
-			return fmt.Sprintf("Failed to save game: %v", err)
+			return err
 		}
 	}
 	defer file.Close()
@@ -100,7 +100,7 @@ func (m *model) saveGameState() tea.Cmd {
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(&gameState); err != nil {
 		return func() tea.Msg {
-			return fmt.Sprintf("Failed to encode game state: %v", err)
+			return err
 		}
 	}
 
@@ -113,20 +113,20 @@ func (m *model) saveGameState() tea.Cmd {
 func (m *model) loadGameState(filePath string) tea.Msg {
     saveDir, err := getSaveDir() // Get path to save directory
     if err != nil {
-        return fmt.Sprintf("Error: %v", err)
+		return err
     }
 
     fullPath := filepath.Join(saveDir, filePath)
     file, err := os.Open(fullPath)
     if err != nil {
-        return fmt.Sprintf("Error: Failed to open save file (%s)", err)
+		return err
     }
     defer file.Close()
 
     var gameState GameState
     decoder := json.NewDecoder(file)
     if err := decoder.Decode(&gameState); err != nil {
-        return fmt.Sprintf("Error: Failed to decode save file (%s)", err)
+		return err
     }
 
     // Apply loaded state

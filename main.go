@@ -7,6 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/progress"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -15,6 +17,8 @@ const (
 	minHealth       = 0
 	healthRegen     = 0.05
 	welcomeDuration = 2 * time.Second
+	defaultWidth	= 10
+	defaultHeight 	= 10
 )
 
 type menuChoice int
@@ -44,6 +48,9 @@ type model struct {
 	toolbar       []toolbarItem  // The toolbar items
 	inventory     []string       // Example of player inventory
 	stats         map[string]int // Example player stats
+	damageFlash		bool
+	terminalHeight	int
+	terminalWidth 	int
 }
 
 type Screen interface {
@@ -52,8 +59,22 @@ type Screen interface {
 	View(m *model) string
 }
 
+func getTerminalSize() (int, int, error) {
+	width, height, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		return 0, 0, err
+	}
+	return width, height, nil
+}
+
 func initialModel() *model {
 	theme := newTheme()
+
+	width, height, err := getTerminalSize()
+	if err != nil {
+		width = defaultWidth
+		height = defaultHeight
+	}
 	m := &model{
 		theme:     theme,
 		health:    100,
@@ -65,6 +86,8 @@ func initialModel() *model {
 			"Agility":   8,
 			"Intellect": 5,
 		},
+		terminalWidth:	width,
+		terminalHeight: height,
 	}
 	m.screens = map[menuChoice]Screen{
 		menuWelcome:    	NewWelcomeScreen(),

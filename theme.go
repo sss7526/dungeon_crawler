@@ -19,6 +19,7 @@ type Theme struct {
 	ErrorStyle      gloss.Style
 	WelcomeStyle    gloss.Style
 	MenuOptionStyle gloss.Style
+	AttributeStyle  gloss.Style
 	ToolbarStyle    gloss.Style
 	ToolbarSelected gloss.Style
 	BorderStyle     gloss.Style
@@ -85,6 +86,11 @@ func newTheme() Theme {
 			Background(gloss.AdaptiveColor{Light: "#00C9A7", Dark: "#1B998B"}).
 			Underline(true).
 			Bold(true),
+
+		AttributeStyle: gloss.NewStyle().
+			Bold(true).
+			Width(15).
+			Foreground(gloss.AdaptiveColor{Light: "#00DFA2", Dark: "#3EC5F8"}),
 
 		BorderStyle: borderStyle,
 		ErrorBorder: errorBorder,

@@ -212,7 +212,7 @@ ex:
 
 tree:
 	@echo "Printing project structure to treefile"; \
-	rm tree.txt; \
+	# rm tree.txt; \
 	# @echo "$(shell basename $(PWD))"
 	tree -n --dirsfirst -I "Makefile|venv|output_docs|dungeon_crawl|tree.txt|*.yaml|*.py" -o tree.txt
 
